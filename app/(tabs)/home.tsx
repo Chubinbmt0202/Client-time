@@ -204,7 +204,7 @@ export default function DashboardScreen() {
                 style={styles.btnIcon}
               />
               <Text style={styles.primaryButtonText}>
-                Đăng ký khuôn mặt ngay
+                Đăng ký khuôn mặt ngay nè
               </Text>
             </TouchableOpacity>
 
