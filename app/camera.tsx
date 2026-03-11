@@ -14,6 +14,7 @@ import {
 } from "react-native-vision-camera";
 
 // Import Bước 1 và Bước 2 vừa tách
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { captureAndCropFace } from "./captureAndCrop";
 import { useFaceDetection } from "./useFaceDetection";
 import { useFaceEmbedding } from "./useFaceEmbedding";
@@ -36,27 +37,83 @@ export default function BasicCameraScreen() {
 
   // Xử lý sự kiện bấm nút (Gọi Bước 2)
   const handleCaptureClick = async () => {
-    if (!faceData || isProcessing) return;
+    if (!faceData || isProcessing || !isModelReady) return;
     try {
       setIsProcessing(true);
 
+      // BƯỚC 2: Cắt ảnh
       const result = await captureAndCropFace(cameraRef);
       if (result) {
         setCroppedImageUri(result.uri);
         setCroppedImageBase64(result.base64);
 
-        // --- BƯỚC 3: Gọi hàm trích xuất đặc trưng ---
-        // BƯỚC 3: Tạo Vector 128 số từ base64 vừa cắt
+        // BƯỚC 3: Tạo Vector 128 số
         const vector = await getEmbedding(result.base64);
+
         if (vector) {
           setEmbedding(vector);
-          console.log("Đã lấy được Embedding thành công!");
+          console.log("Đã lấy được Embedding, chuẩn bị gửi lên server...");
+
+          // BƯỚC 4: Gửi lên Backend
+          // (Tạm thời hardcode userId để test, sau này bạn lấy từ State/Redux/AsyncStorage)
+          const userDataString = await AsyncStorage.getItem("userData");
+
+          if (!userDataString) {
+            alert(
+              "Không tìm thấy thông tin đăng nhập. Vui lòng đăng nhập lại!",
+            );
+            return;
+          }
+          const userData = JSON.parse(userDataString);
+          const currentUserId = userData.id;
+          await sendEmbeddingToBackend(currentUserId, vector);
         }
       }
     } catch (error) {
       console.error("Lỗi khi xử lý ảnh:", error);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // BƯỚC 4: Hàm gửi dữ liệu lên server
+  const sendEmbeddingToBackend = async (
+    userId: string,
+    embeddingVector: number[],
+  ) => {
+    try {
+      // LƯU Ý: Thay URL này bằng địa chỉ IP thật của máy tính chạy server Node.js
+      // Ví dụ: http://192.168.1.15:3000/api/attendance
+      // Đừng dùng 'localhost' vì điện thoại không hiểu localhost của máy tính đâu nhé!
+      const API_URL = "http:/192.168.2.45:3001/api/employees/upload-face";
+
+      console.log("Số lượng phần tử trong vector: ", embeddingVector.length);
+
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // Thêm token nếu server của bạn yêu cầu xác thực:
+          // "Authorization": `Bearer ${your_token}`
+        },
+        body: JSON.stringify({
+          userId: userId,
+          embedding: embeddingVector, // Mảng 128 con số
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("✅ Server trả về thành công:", data);
+        alert("Thành công: " + (data.message || "Đã nhận diện khuôn mặt!"));
+      } else {
+        console.error("❌ Lỗi từ server:", data);
+        alert("Thất bại: " + (data.message || "Không thể xác thực"));
+      }
+    } catch (error) {
+      console.error("Lỗi kết nối mạng:", error);
+      alert("Lỗi kết nối đến máy chủ!");
     }
   };
 
