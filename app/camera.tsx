@@ -16,6 +16,7 @@ import {
 // Import Bước 1 và Bước 2 vừa tách
 import { captureAndCropFace } from "./captureAndCrop";
 import { useFaceDetection } from "./useFaceDetection";
+import { useFaceEmbedding } from "./useFaceEmbedding";
 
 export default function BasicCameraScreen() {
   const device = useCameraDevice("front");
@@ -23,6 +24,7 @@ export default function BasicCameraScreen() {
   const cameraRef = useRef<Camera>(null!);
 
   // State quản lý tiến trình và kết quả
+  const [embedding, setEmbedding] = useState<number[] | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [croppedImageBase64, setCroppedImageBase64] = useState<string | null>(
     null,
@@ -42,6 +44,14 @@ export default function BasicCameraScreen() {
       if (result) {
         setCroppedImageUri(result.uri);
         setCroppedImageBase64(result.base64);
+
+        // --- BƯỚC 3: Gọi hàm trích xuất đặc trưng ---
+        // BƯỚC 3: Tạo Vector 128 số từ base64 vừa cắt
+        const vector = await getEmbedding(result.base64);
+        if (vector) {
+          setEmbedding(vector);
+          console.log("Đã lấy được Embedding thành công!");
+        }
       }
     } catch (error) {
       console.error("Lỗi khi xử lý ảnh:", error);
@@ -49,6 +59,8 @@ export default function BasicCameraScreen() {
       setIsProcessing(false);
     }
   };
+
+  const { isModelReady, getEmbedding } = useFaceEmbedding();
 
   if (device == null) {
     return (
@@ -131,11 +143,35 @@ export default function BasicCameraScreen() {
             source={{ uri: croppedImageUri }}
             style={styles.croppedImage}
           />
+
+          {/* Hiển thị tóm tắt Vector Bước 3 */}
+          {embedding && (
+            <View style={{ marginBottom: 10, alignItems: "center" }}>
+              <Text style={styles.infoText}>BƯỚC 3: Embedding (128d)</Text>
+              <Text
+                style={{
+                  color: "#fff",
+                  fontSize: 10,
+                  textAlign: "center",
+                  width: 200,
+                }}
+              >
+                {/* Chỉ hiện 5 số đầu tiên cho gọn */}[
+                {embedding
+                  .slice(0, 5)
+                  .map((v) => v.toFixed(3))
+                  .join(", ")}
+                , ...]
+              </Text>
+            </View>
+          )}
+
           <TouchableOpacity
             style={styles.btnCapture}
             onPress={() => {
               setCroppedImageBase64(null);
               setCroppedImageUri(null);
+              setEmbedding(null); // Xóa dữ liệu cũ
             }}
           >
             <Text style={styles.btnText}>Làm lại</Text>
