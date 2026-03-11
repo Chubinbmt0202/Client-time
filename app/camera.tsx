@@ -1,10 +1,7 @@
-import * as FileSystem from "expo-file-system/legacy";
 import { Image } from "expo-image";
-import * as ImageManipulator from "expo-image-manipulator";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -14,146 +11,38 @@ import {
   Camera,
   useCameraDevice,
   useCameraPermission,
-  useFrameProcessor,
 } from "react-native-vision-camera";
-import {
-  Face,
-  useFaceDetector,
-} from "react-native-vision-camera-face-detector";
-import { Worklets } from "react-native-worklets-core";
 
-// Khai báo type rõ ràng để fix lỗi Typescript
-interface FaceData {
-  bounds: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  yawAngle: number;
-  pitchAngle: number;
-  leftEyeOpenProbability: number;
-}
+// Import Bước 1 và Bước 2 vừa tách
+import { captureAndCropFace } from "./captureAndCrop";
+import { useFaceDetection } from "./useFaceDetection";
 
 export default function BasicCameraScreen() {
   const device = useCameraDevice("front");
   const { hasPermission, requestPermission } = useCameraPermission();
-  const cameraRef = useRef<Camera>(null);
+  const cameraRef = useRef<Camera>(null!);
 
-  // 1. State lưu trữ thông tin khuôn mặt
-  // Đã thêm type <FaceData | null> để fix lỗi gán giá trị
-  const [faceData, setFaceData] = useState<FaceData | null>(null);
-
-  // State cho Bước 2
+  // State quản lý tiến trình và kết quả
   const [isProcessing, setIsProcessing] = useState(false);
   const [croppedImageBase64, setCroppedImageBase64] = useState<string | null>(
     null,
   );
   const [croppedImageUri, setCroppedImageUri] = useState<string | null>(null);
 
-  // 2. Cấu hình Face Detector
-  const { detectFaces } = useFaceDetector({
-    performanceMode: "fast", // Ưu tiên tốc độ
-    landmarkMode: "all", // Lấy tọa độ
-    classificationMode: "all", // Tính xác suất nhắm/mở mắt
-  });
+  // Gọi Hook xử lý Bước 1
+  const { faceData, frameProcessor } = useFaceDetection(isProcessing);
 
-  // 3. Hàm chuyển dữ liệu từ luồng Native sang React (JS)
-  // Đã định nghĩa type `faces: Face[]` giúp VSCode và TS hiểu rõ cấu trúc
-  const handleDetectedFaces = Worklets.createRunOnJS((faces: Face[]) => {
-    // Chỉ cập nhật UI faceData khi không đang xử lý ảnh (tránh giật lag)
-    if (isProcessing) return;
-
-    if (faces && faces.length > 0) {
-      const face = faces[0];
-      setFaceData({
-        bounds: {
-          x: face.bounds.x,
-          y: face.bounds.y,
-          width: face.bounds.width,
-          height: face.bounds.height,
-        },
-        yawAngle: face.yawAngle ?? 0,
-        pitchAngle: face.pitchAngle ?? 0,
-        leftEyeOpenProbability: face.leftEyeOpenProbability ?? 0,
-      });
-    } else {
-      setFaceData(null);
-    }
-  });
-
-  // 4. Frame Processor: Chạy liên tục xử lý frame ảnh realtime
-  const frameProcessor = useFrameProcessor(
-    (frame) => {
-      "worklet";
-      const faces = detectFaces(frame);
-      // @ts-ignore: Worklet đôi khi báo lỗi truyền array nên dùng ts-ignore
-      handleDetectedFaces(faces);
-    },
-    [detectFaces, handleDetectedFaces],
-  );
-
-  // --- BƯỚC 2: Chụp ảnh, Crop, Resize ---
-  const handleCaptureAndCrop = async () => {
-    if (!cameraRef.current || !faceData || isProcessing) return;
-
+  // Xử lý sự kiện bấm nút (Gọi Bước 2)
+  const handleCaptureClick = async () => {
+    if (!faceData || isProcessing) return;
     try {
       setIsProcessing(true);
 
-      // 2.1 Chụp toàn bộ ảnh hiện tại
-      const photo = await cameraRef.current.takePhoto({
-        qualityPrioritization: "balanced",
-      });
-
-      // Kích thước khung ngắm trên màn hình UI của chúng ta
-      const FRAME_SIZE = 260;
-
-      // Lấy kích thước màn hình thiết bị
-      const { width: screenWidth, height: screenHeight } =
-        Dimensions.get("window");
-
-      // Xử lý xoay ảnh (nếu ảnh gốc bị ngang)
-      const isPhotoLandscape = photo.width > photo.height;
-      const actualPhotoWidth = isPhotoLandscape ? photo.height : photo.width;
-      const actualPhotoHeight = isPhotoLandscape ? photo.width : photo.height;
-
-      // Tính tỷ lệ giữa ảnh thật và màn hình
-      const scale = actualPhotoWidth / screenWidth;
-
-      // Tính toán kích thước của vùng cần cắt trên ảnh thật
-      const cropSize = FRAME_SIZE * scale;
-
-      // Vì khung ngắm nằm chính giữa màn hình, ta lấy chính giữa bức ảnh gốc để cắt
-      const cropX = (actualPhotoWidth - cropSize) / 2;
-      const cropY = (actualPhotoHeight - cropSize) / 2;
-
-      console.log("Cắt theo khung:", { cropX, cropY, cropSize });
-
-      // Cắt và Resize về chuẩn 112x112 cho MobileFaceNet
-      const manipResult = await ImageManipulator.manipulateAsync(
-        "file://" + photo.path,
-        [
-          {
-            crop: {
-              originX: Math.round(cropX),
-              originY: Math.round(cropY),
-              width: Math.round(cropSize),
-              height: Math.round(cropSize),
-            },
-          },
-          { resize: { width: 112, height: 112 } }, // Bắt buộc về 112x112
-        ],
-        { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG },
-      );
-
-      setCroppedImageUri(manipResult.uri);
-
-      // 2.3 Chuyển file thành Base64 để chuẩn bị đẩy vào TFLite (Bước 3)
-      const base64 = await FileSystem.readAsStringAsync(manipResult.uri, {
-        encoding: "base64",
-      });
-
-      setCroppedImageBase64(base64);
+      const result = await captureAndCropFace(cameraRef);
+      if (result) {
+        setCroppedImageUri(result.uri);
+        setCroppedImageBase64(result.base64);
+      }
     } catch (error) {
       console.error("Lỗi khi xử lý ảnh:", error);
     } finally {
@@ -187,13 +76,15 @@ export default function BasicCameraScreen() {
         style={StyleSheet.absoluteFill}
         device={device}
         isActive={true}
-        photo={true} // Bắt buộc bật để xài takePhoto()
+        photo={true}
         frameProcessor={frameProcessor}
         pixelFormat="yuv"
       />
+
+      {/* Khung ngắm chuẩn 260x260 */}
       <View style={styles.focusFrame} />
 
-      {/* Giao diện test hiển thị output theo mẫu bạn yêu cầu */}
+      {/* Hiển thị Output khuôn mặt (Bước 1) */}
       {faceData && !isProcessing && (
         <View style={styles.overlayInfo}>
           <Text style={styles.infoText}>BƯỚC 1: Output khuôn mặt</Text>
@@ -213,17 +104,16 @@ export default function BasicCameraScreen() {
             L.Eye Open: {faceData.leftEyeOpenProbability.toFixed(2)}
           </Text>
 
-          {/* Button mô phỏng Bước 2 */}
           <TouchableOpacity
             style={styles.btnCapture}
-            onPress={handleCaptureAndCrop}
+            onPress={handleCaptureClick}
           >
             <Text style={styles.btnText}>Trích xuất mặt (BƯỚC 2)</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Hiển thị Loading khi đang cắt ảnh */}
+      {/* Loading Overlay */}
       {isProcessing && (
         <View style={styles.processingOverlay}>
           <ActivityIndicator size="large" color="#00ff00" />
@@ -233,7 +123,7 @@ export default function BasicCameraScreen() {
         </View>
       )}
 
-      {/* Hiển thị ảnh sau khi đã xử lý xong */}
+      {/* Hiển thị Ảnh Crop (Bước 2) */}
       {croppedImageUri && !isProcessing && (
         <View style={styles.resultOverlay}>
           <Text style={styles.infoText}>BƯỚC 2: Ảnh (112x112)</Text>
@@ -267,26 +157,17 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: "50%",
     left: "50%",
-    width: 260, // Kích thước khung (260x260 pixel)
+    width: 260,
     height: 260,
-    marginTop: -130, // Dịch lên một nửa chiều cao để căn giữa
-    marginLeft: -130, // Dịch sang trái một nửa chiều rộng để căn giữa
+    marginTop: -130,
+    marginLeft: -130,
     borderWidth: 3,
     borderColor: "#00FF00",
     borderRadius: 16,
-    borderStyle: "dashed", // Viền đứt khúc nhìn cho ngầu
+    borderStyle: "dashed",
   },
-  text: {
-    color: "#FFF",
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  linkText: {
-    color: "#1C75FF",
-    fontSize: 18,
-    fontWeight: "bold",
-    padding: 10,
-  },
+  text: { color: "#FFF", fontSize: 16, marginBottom: 20 },
+  linkText: { color: "#1C75FF", fontSize: 18, fontWeight: "bold", padding: 10 },
   overlayInfo: {
     position: "absolute",
     bottom: 40,
@@ -309,10 +190,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
   },
-  btnText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
+  btnText: { color: "#fff", fontWeight: "bold" },
   processingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.8)",
