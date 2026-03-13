@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { styles } from "./index.styles";
+import { API_ENDPOINTS } from "../constants/api";
 
 export default function LoginScreen() {
   const [employeeId, setEmployeeId] = useState("");
@@ -35,7 +36,7 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       // Note: If running on Android Emulator, you might need to change 'localhost' to '10.0.2.2'
-      const loginRes = await fetch("http://192.168.2.45:3001/api/auth/login", {
+      const loginRes = await fetch(API_ENDPOINTS.LOGIN, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

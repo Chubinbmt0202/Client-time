@@ -1,7 +1,9 @@
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,13 +15,14 @@ import {
   useCameraPermission,
 } from "react-native-vision-camera";
 
-// Import Bước 1 và Bước 2 vừa tách
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { captureAndCropFace } from "./captureAndCrop";
 import { useFaceDetection } from "./useFaceDetection";
 import { useFaceEmbedding } from "./useFaceEmbedding";
+import { API_ENDPOINTS } from "../constants/api";
 
 export default function BasicCameraScreen() {
+  const router = useRouter();
   const device = useCameraDevice("front");
   const { hasPermission, requestPermission } = useCameraPermission();
   const cameraRef = useRef<Camera>(null!);
@@ -85,7 +88,7 @@ export default function BasicCameraScreen() {
       // LƯU Ý: Thay URL này bằng địa chỉ IP thật của máy tính chạy server Node.js
       // Ví dụ: http://192.168.1.15:3000/api/attendance
       // Đừng dùng 'localhost' vì điện thoại không hiểu localhost của máy tính đâu nhé!
-      const API_URL = "http:/192.168.2.45:3001/api/employees/upload-face";
+      const API_URL = API_ENDPOINTS.UPLOAD_FACE;
 
       console.log("Số lượng phần tử trong vector: ", embeddingVector.length);
 
@@ -106,7 +109,16 @@ export default function BasicCameraScreen() {
 
       if (response.ok) {
         console.log("✅ Server trả về thành công:", data);
-        alert("Thành công: " + (data.message || "Đã nhận diện khuôn mặt!"));
+        await AsyncStorage.setItem("isFaceUpdated", "true");
+
+        // --- Hiển thị thông báo và Chuyển hướng về Home ---
+        Alert.alert("Thành công", "Đã đăng ký khuôn mặt thành công!", [
+          {
+            text: "Đồng ý",
+            // Dùng replace để người dùng không thể bấm nút Back quay lại màn hình Camera này nữa
+            onPress: () => router.replace("/(tabs)/home"),
+          },
+        ]);
       } else {
         console.error("❌ Lỗi từ server:", data);
         alert("Thất bại: " + (data.message || "Không thể xác thực"));

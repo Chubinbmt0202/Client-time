@@ -10,6 +10,7 @@ import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,13 +18,87 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { API_ENDPOINTS } from "../../constants/api";
 
 export default function DashboardScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFaceUpdated, setIsFaceUpdated] = useState(false);
-  const [profile, setProfile] = useState({ name: "", id: "", role: "" });
+  const [profile, setProfile] = useState<{
+    name: string;
+    id: string;
+    role: string;
+    username: string;
+  }>({ name: "", id: "", role: "", username: "" });
+  const [attendance, setAttendance] = useState<{
+    checkIn: string | null;
+    checkOut: string | null;
+  }>({ checkIn: null, checkOut: null });
+  const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
   const router = useRouter();
+
+  const fetchAttendance = async (userId: string) => {
+    try {
+      // Note: User specified port 3001 for attendance
+      const response = await fetch(API_ENDPOINTS.ATTENDANCE(userId));
+      if (response.ok) {
+        const data = await response.json();
+        setAttendance({
+          checkIn: data.checkIn || null,
+          checkOut: data.checkOut || null,
+        });
+      }
+    } catch (error) {
+      console.error("Lỗi khi lấy thông tin chấm công:", error);
+    }
+  };
+
+  const loadSession = useCallback(async () => {
+    try {
+      let updated = false;
+
+      const faceStatus = await AsyncStorage.getItem("isFaceUpdated");
+      if (faceStatus !== null) updated = faceStatus === "true";
+
+      const userStr = await AsyncStorage.getItem("userData");
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        const userProfile = {
+          name: user.full_name || "Người dùng",
+          id: user.employee_id || user.username || "NV000",
+          role: user.role === "admin" ? "Quản trị viên" : "Nhân viên",
+          username: user.username || "",
+        };
+        setProfile(userProfile);
+
+        // Fetch attendance data
+        if (userProfile.username) {
+          await fetchAttendance(userProfile.username);
+        }
+
+        // Fallback in case root isFaceUpdated didn't save correctly
+        if (user.is_face_updated === true) {
+          updated = true;
+        }
+      }
+
+      setIsFaceUpdated(updated);
+    } catch (error) {
+      console.error("Lỗi tải thông tin phiên:", error);
+    }
+  }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadSession();
+    setRefreshing(false);
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSession();
+    }, [loadSession]),
+  );
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -33,46 +108,26 @@ export default function DashboardScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      const loadSession = async () => {
-        try {
-          let updated = false;
-
-          const faceStatus = await AsyncStorage.getItem("isFaceUpdated");
-          if (faceStatus !== null) updated = faceStatus === "true";
-
-          const userStr = await AsyncStorage.getItem("userData");
-          if (userStr) {
-            const user = JSON.parse(userStr);
-            setProfile({
-              name: user.full_name || "Người dùng",
-              id: user.username || "NV000",
-              role: user.role === "admin" ? "Quản trị viên" : "Nhân viên",
-            });
-
-            // Fallback in case root isFaceUpdated didn't save correctly
-            if (user.is_face_updated === true) {
-              updated = true;
-            }
-          }
-
-          setIsFaceUpdated(updated);
-        } catch (error) {
-          console.error("Lỗi tải thông tin phiên:", error);
-        }
-      };
-
-      loadSession();
-    }, []),
-  );
-
   const handleOpenDrawer = () => {
     navigation.dispatch(DrawerActions.openDrawer());
   };
 
   const formatTime = (value: number) =>
     value < 10 ? `0${value}` : value.toString();
+
+  const formatAttendanceTime = (isoString: string | null) => {
+    if (!isoString) return "--:--";
+    try {
+      const date = new Date(isoString);
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const ampm = hours >= 12 ? "PM" : "AM";
+      const displayHours = hours % 12 || 12;
+      return `${formatTime(displayHours)}:${formatTime(minutes)} ${ampm}`;
+    } catch (e) {
+      return "--:--";
+    }
+  };
 
   const days = [
     "CHỦ NHẬT",
@@ -125,6 +180,9 @@ export default function DashboardScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Profile Card */}
         {isFaceUpdated && (
@@ -238,22 +296,84 @@ export default function DashboardScreen() {
             </View>
 
             <View style={styles.statusCardsContainer}>
-              <View style={[styles.statusCard, styles.statusCardIn]}>
+              <View
+                style={[
+                  styles.statusCard,
+                  attendance.checkIn ? styles.statusCardIn : styles.statusCardOut,
+                ]}
+              >
                 <View style={styles.statusCardHeader}>
-                  <Ionicons name="enter-outline" size={20} color="#16A34A" />
-                  <Text style={styles.statusCardTitleIn}>Giờ vào</Text>
+                  <Ionicons
+                    name="enter-outline"
+                    size={20}
+                    color={attendance.checkIn ? "#16A34A" : "#64748B"}
+                  />
+                  <Text
+                    style={
+                      attendance.checkIn
+                        ? styles.statusCardTitleIn
+                        : styles.statusCardTitleOut
+                    }
+                  >
+                    Giờ vào
+                  </Text>
                 </View>
-                <Text style={styles.statusTime}>08:00 AM</Text>
-                <Text style={styles.statusSubtitleIn}>Đúng giờ</Text>
+                <Text
+                  style={
+                    attendance.checkIn ? styles.statusTime : styles.statusTimeEmpty
+                  }
+                >
+                  {formatAttendanceTime(attendance.checkIn)}
+                </Text>
+                <Text
+                  style={
+                    attendance.checkIn
+                      ? styles.statusSubtitleIn
+                      : styles.statusSubtitleOut
+                  }
+                >
+                  {attendance.checkIn ? "Đúng giờ" : "Chưa chấm"}
+                </Text>
               </View>
 
-              <View style={[styles.statusCard, styles.statusCardOut]}>
+              <View
+                style={[
+                  styles.statusCard,
+                  attendance.checkOut ? styles.statusCardIn : styles.statusCardOut,
+                ]}
+              >
                 <View style={styles.statusCardHeader}>
-                  <Ionicons name="exit-outline" size={20} color="#64748B" />
-                  <Text style={styles.statusCardTitleOut}>Giờ ra</Text>
+                  <Ionicons
+                    name="exit-outline"
+                    size={20}
+                    color={attendance.checkOut ? "#16A34A" : "#64748B"}
+                  />
+                  <Text
+                    style={
+                      attendance.checkOut
+                        ? styles.statusCardTitleIn
+                        : styles.statusCardTitleOut
+                    }
+                  >
+                    Giờ ra
+                  </Text>
                 </View>
-                <Text style={styles.statusTimeEmpty}>--:--</Text>
-                <Text style={styles.statusSubtitleOut}>Chưa chấm</Text>
+                <Text
+                  style={
+                    attendance.checkOut ? styles.statusTime : styles.statusTimeEmpty
+                  }
+                >
+                  {formatAttendanceTime(attendance.checkOut)}
+                </Text>
+                <Text
+                  style={
+                    attendance.checkOut
+                      ? styles.statusSubtitleIn
+                      : styles.statusSubtitleOut
+                  }
+                >
+                  {attendance.checkOut ? "Hoàn thành" : "Chưa chấm"}
+                </Text>
               </View>
             </View>
 
