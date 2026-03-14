@@ -78,7 +78,18 @@ function CustomDrawerContent(props: any) {
         />
       ),
       label: "Chấm công",
-      route: "",
+      route: "/face-attendance",
+    },
+    {
+      icon: (
+        <MaterialCommunityIcons
+          name="face-recognition"
+          size={24}
+          color="#475569"
+        />
+      ),
+      label: "Đăng ký khuôn mặt",
+      route: "/face-registration",
     },
     {
       icon: <MaterialCommunityIcons name="history" size={24} color="#475569" />,
@@ -307,6 +318,14 @@ export default function RootLayout() {
           />
           <Drawer.Screen
             name="camera"
+            options={{ headerShown: false, swipeEnabled: false }}
+          />
+          <Drawer.Screen
+            name="face-registration"
+            options={{ headerShown: false, swipeEnabled: false }}
+          />
+          <Drawer.Screen
+            name="face-attendance"
             options={{ headerShown: false, swipeEnabled: false }}
           />
         </Drawer>

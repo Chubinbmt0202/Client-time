@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -16,13 +16,15 @@ import {
 } from "react-native-vision-camera";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_ENDPOINTS } from "../constants/api";
 import { captureAndCropFace } from "./captureAndCrop";
 import { useFaceDetection } from "./useFaceDetection";
 import { useFaceEmbedding } from "./useFaceEmbedding";
-import { API_ENDPOINTS } from "../constants/api";
 
 export default function BasicCameraScreen() {
   const router = useRouter();
+  const { mode } = useLocalSearchParams(); // Mode: 'register' (default) or 'checkin'
+
   const device = useCameraDevice("front");
   const { hasPermission, requestPermission } = useCameraPermission();
   const cameraRef = useRef<Camera>(null!);
@@ -69,7 +71,12 @@ export default function BasicCameraScreen() {
           }
           const userData = JSON.parse(userDataString);
           const currentUserId = userData.id;
-          await sendEmbeddingToBackend(currentUserId, vector);
+
+          if (mode === "checkin") {
+            await verifyAttendance(currentUserId, vector);
+          } else {
+            await sendEmbeddingToBackend(currentUserId, vector);
+          }
         }
       }
     } catch (error) {
@@ -79,15 +86,12 @@ export default function BasicCameraScreen() {
     }
   };
 
-  // BƯỚC 4: Hàm gửi dữ liệu lên server
+  // BƯỚC 4: Hàm gửi dữ liệu lên server (Đăng ký)
   const sendEmbeddingToBackend = async (
     userId: string,
     embeddingVector: number[],
   ) => {
     try {
-      // LƯU Ý: Thay URL này bằng địa chỉ IP thật của máy tính chạy server Node.js
-      // Ví dụ: http://192.168.1.15:3000/api/attendance
-      // Đừng dùng 'localhost' vì điện thoại không hiểu localhost của máy tính đâu nhé!
       const API_URL = API_ENDPOINTS.UPLOAD_FACE;
 
       console.log("Số lượng phần tử trong vector: ", embeddingVector.length);
@@ -96,12 +100,10 @@ export default function BasicCameraScreen() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // Thêm token nếu server của bạn yêu cầu xác thực:
-          // "Authorization": `Bearer ${your_token}`
         },
         body: JSON.stringify({
           userId: userId,
-          embedding: embeddingVector, // Mảng 128 con số
+          embedding: embeddingVector,
         }),
       });
 
@@ -111,17 +113,61 @@ export default function BasicCameraScreen() {
         console.log("✅ Server trả về thành công:", data);
         await AsyncStorage.setItem("isFaceUpdated", "true");
 
-        // --- Hiển thị thông báo và Chuyển hướng về Home ---
         Alert.alert("Thành công", "Đã đăng ký khuôn mặt thành công!", [
           {
             text: "Đồng ý",
-            // Dùng replace để người dùng không thể bấm nút Back quay lại màn hình Camera này nữa
             onPress: () => router.replace("/(tabs)/home"),
           },
         ]);
       } else {
         console.error("❌ Lỗi từ server:", data);
         alert("Thất bại: " + (data.message || "Không thể xác thực"));
+      }
+    } catch (error) {
+      console.error("Lỗi kết nối mạng:", error);
+      alert("Lỗi kết nối đến máy chủ!");
+    }
+  };
+
+  // BƯỚC 4: Hàm gửi dữ liệu lên server (Xác thực điểm danh)
+  const verifyAttendance = async (
+    userId: string,
+    embeddingVector: number[],
+  ) => {
+    try {
+      const API_URL = API_ENDPOINTS.VERIFY_ATTENDANCE;
+
+      console.log("Đang xác thực khuôn mặt để điểm danh...");
+      console.log("userId: ", userId);
+      console.log("embedding: ", embeddingVector);
+
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: userId,
+          embedding: embeddingVector,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("✅ Điểm danh thành công:", data);
+        Alert.alert("Thành công", "Chấm công thành công! Hẹn gặp lại.", [
+          {
+            text: "Đồng ý",
+            onPress: () => router.replace("/(tabs)/home"),
+          },
+        ]);
+      } else {
+        console.error("❌ Xác thực thất bại:", data);
+        Alert.alert(
+          "Thất bại",
+          data.message || "Khuôn mặt không khớp. Vui lòng thử lại!"
+        );
       }
     } catch (error) {
       console.error("Lỗi kết nối mạng:", error);

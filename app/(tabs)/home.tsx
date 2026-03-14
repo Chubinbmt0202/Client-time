@@ -56,6 +56,7 @@ export default function DashboardScreen() {
   const loadSession = useCallback(async () => {
     try {
       let updated = false;
+      console.log("loadSession");
 
       const faceStatus = await AsyncStorage.getItem("isFaceUpdated");
       if (faceStatus !== null) updated = faceStatus === "true";
@@ -253,7 +254,7 @@ export default function DashboardScreen() {
 
             <TouchableOpacity
               style={styles.primaryButton}
-              onPress={() => router.push("/camera")}
+              onPress={() => router.push("/face-registration")}
             >
               <Ionicons
                 name="camera-outline"
@@ -280,7 +281,10 @@ export default function DashboardScreen() {
           /* Normal Check-in UI */
           <>
             {/* Check-in Button */}
-            <TouchableOpacity style={styles.checkInButton}>
+            <TouchableOpacity
+              style={styles.checkInButton}
+              onPress={() => router.push("/face-attendance")}
+            >
               <MaterialCommunityIcons
                 name="face-recognition"
                 size={24}

@@ -10,7 +10,9 @@ export interface FaceData {
   bounds: { x: number; y: number; width: number; height: number };
   yawAngle: number;
   pitchAngle: number;
+  rollAngle: number;
   leftEyeOpenProbability: number;
+  rightEyeOpenProbability: number;
 }
 
 export function useFaceDetection(isProcessing: boolean) {
@@ -39,7 +41,9 @@ export function useFaceDetection(isProcessing: boolean) {
         },
         yawAngle: face.yawAngle ?? 0,
         pitchAngle: face.pitchAngle ?? 0,
+        rollAngle: face.rollAngle ?? 0,
         leftEyeOpenProbability: face.leftEyeOpenProbability ?? 0,
+        rightEyeOpenProbability: face.rightEyeOpenProbability ?? 0,
       });
     } else {
       setFaceData(null);
