@@ -16,9 +16,9 @@ import {
 } from "react-native-vision-camera";
 import { API_ENDPOINTS } from "../constants/api";
 
-import { captureAndCropFace } from "./captureAndCrop";
 import { useFaceDetection } from "./useFaceDetection";
-import { useFaceEmbedding } from "./useFaceEmbedding";
+// 1. IMPORT HÀM CLOUDINARY
+import { uploadImageToCloudinary } from "../constants/cloudinary";
 
 export default function AttendanceScreen() {
   const router = useRouter();
@@ -29,11 +29,10 @@ export default function AttendanceScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("Nhìn thẳng để chấm công");
 
-  // Dùng ref để chống chụp liên tục nhiều lần
   const isCapturing = useRef(false);
 
+  // 2. CHỈ CẦN DETECT KHUÔN MẶT ĐỂ TỰ ĐỘNG CHỤP (Bỏ useFaceEmbedding)
   const { faceData, frameProcessor } = useFaceDetection(isProcessing);
-  const { isModelReady, getEmbedding } = useFaceEmbedding();
 
   const resetAttendance = () => {
     isCapturing.current = false;
@@ -43,12 +42,13 @@ export default function AttendanceScreen() {
 
   // Logic tự động chụp khi nhìn thẳng
   useEffect(() => {
-    if (!faceData || isProcessing || !isModelReady) return;
+    if (!faceData || isProcessing) return;
 
     const { yawAngle, pitchAngle, leftEyeOpenProbability, rightEyeOpenProbability } = faceData;
 
     const eyesOpen = leftEyeOpenProbability > 0.5 && rightEyeOpenProbability > 0.5;
-    const isStraight = Math.abs(yawAngle) < 10 && Math.abs(pitchAngle) < 15;
+    // Nới lỏng góc một chút để dễ chụp hơn
+    const isStraight = Math.abs(yawAngle) < 15 && Math.abs(pitchAngle) < 15;
 
     if (eyesOpen && isStraight && !isCapturing.current) {
       handleAttendance();
@@ -57,26 +57,36 @@ export default function AttendanceScreen() {
     } else if (!isStraight) {
       setStatusMessage("Nhìn thẳng vào camera");
     }
-  }, [faceData, isProcessing, isModelReady]);
+  }, [faceData, isProcessing]);
 
-  // Gộp chung logic xử lý ảnh và gọi API vào một hàm duy nhất
+  // LUỒNG CHẤM CÔNG MỚI (Tương tự đăng ký nhưng chỉ 1 ảnh)
   const handleAttendance = async () => {
-    if (isCapturing.current) return;
+    if (isCapturing.current || !cameraRef.current) return;
     isCapturing.current = true;
     setIsProcessing(true);
-    setStatusMessage("Đang nhận diện...");
+    setStatusMessage("Đang chụp ảnh...");
 
     try {
-      // 1. Chờ camera ổn định
+      // 1. Chờ camera lấy nét
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // 2. Chụp và cắt ảnh
-      const result = await captureAndCropFace(cameraRef);
-      if (!result) throw new Error("Không thể chụp ảnh từ camera");
+      // 2. Chụp ảnh toàn màn hình gốc
+      const photo = await cameraRef.current.takePhoto({
+        flash: 'off',
+        enableShutterSound: false
+      });
+      const imageUri = `file://${photo.path}`;
 
-      // 3. Trích xuất mảng 128 số
-      const vector = await getEmbedding(result.base64);
-      if (!vector) throw new Error("Lỗi khi trích xuất vector khuôn mặt");
+      // 3. Upload 1 tấm ảnh duy nhất lên Cloudinary
+      setStatusMessage("Đang đồng bộ dữ liệu...");
+      const startUploadTime = Date.now();
+
+      const cloudUrl = await uploadImageToCloudinary(imageUri);
+
+      const uploadDuration = ((Date.now() - startUploadTime) / 1000).toFixed(2);
+      console.log(`⏱️ [FRONTEND] Thời gian upload 1 ảnh: ${uploadDuration} giây`);
+
+      if (!cloudUrl) throw new Error("Không thể tải ảnh lên hệ thống");
 
       // 4. Lấy UserID từ Storage
       const userDataString = await AsyncStorage.getItem("userData");
@@ -87,43 +97,49 @@ export default function AttendanceScreen() {
       }
       const userId = JSON.parse(userDataString).id;
 
-      // 5. Gửi lên Backend xác thực
+      // 5. Gửi 1 URL lên Backend xác thực
+      setStatusMessage("Đang xác thực khuôn mặt...");
+      const startBackendTime = Date.now();
+
+      // Lưu ý: Đảm bảo API_ENDPOINTS.RECOGNIZE đang trỏ về http://<IP>:3001/api/attendance/checkAttendance
       const API_URL = API_ENDPOINTS.RECOGNIZE;
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, embedding: vector }),
+        // Gửi { userId, url } thay vì embedding
+        body: JSON.stringify({ userId: userId, url: cloudUrl }),
       });
 
       const data = await response.json();
+      const backendDuration = ((Date.now() - startBackendTime) / 1000).toFixed(2);
+      console.log(`⏱️ [FRONTEND] Thời gian AI xử lý và phản hồi: ${backendDuration} giây`);
 
       // 6. Xử lý kết quả trả về
       if (response.ok && data.success) {
         console.log("✅ Nhận diện thành công:", data);
 
-        // SỬA LỖI: Lấy tên từ data.data (do Backend trả về object { data: { full_name: ... } })
+        // Hiển thị tên (nếu backend có trả về) và độ lệch khuôn mặt (match_distance)
         const userName = data.data?.full_name || "Nhân viên";
+        const distance = data.match_distance ? `(Độ lệch: ${data.match_distance})` : "";
 
-        Alert.alert("Thành công", `Chào ${userName}! Chấm công thành công.`, [
+        Alert.alert("Thành công", `Chào ${userName}! Chấm công thành công.\n${distance}`, [
           { text: "OK", onPress: () => router.replace("/(tabs)/home") }
         ]);
       } else {
         console.error("❌ Nhận diện thất bại:", data);
-        Alert.alert("Không khớp", data.message || "Khuôn mặt này chưa được đăng ký trong hệ thống.", [
+        Alert.alert("Không khớp", data.message || "Khuôn mặt này không khớp với hệ thống.", [
           { text: "Thử lại", onPress: resetAttendance },
-          { text: "Đăng ký mới", onPress: () => router.push("/face-registration") }
+          { text: "Hủy", style: "cancel" }
         ]);
-        setStatusMessage("Vui lòng thử lại hoặc đăng ký lại");
+        setStatusMessage("Vui lòng thử lại");
       }
 
     } catch (error) {
       console.error("Lỗi quá trình chấm công:", error);
-      Alert.alert("Lỗi", "Quá trình xử lý bị gián đoạn. Vui lòng kiểm tra lại mạng hoặc camera.", [
+      Alert.alert("Lỗi", "Quá trình xử lý bị gián đoạn. Vui lòng kiểm tra lại mạng.", [
         { text: "Thử lại", onPress: resetAttendance }
       ]);
     }
-    // Chú ý: Không set `isCapturing.current = false` ở finally nếu thành công, 
-    // vì ta muốn chuyển trang (router.replace). Chỉ reset khi người dùng bấm "Thử lại".
   };
 
   if (device == null) return <View style={styles.centered}><Text style={styles.titleText}>Không tìm thấy camera</Text></View>;

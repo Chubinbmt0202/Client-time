@@ -16,9 +16,10 @@ import {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_ENDPOINTS } from "../constants/api";
-import { captureAndCropFace } from "./captureAndCrop";
 import { useFaceDetection } from "./useFaceDetection";
-import { useFaceEmbedding } from "./useFaceEmbedding";
+
+// IMPORT HÀM CLOUDINARY
+import { uploadImageToCloudinary } from "../constants/cloudinary";
 
 type RegistrationStep = "STRAIGHT" | "LEFT" | "RIGHT" | "DONE";
 
@@ -30,12 +31,11 @@ export default function FaceRegistrationScreen() {
 
   const [step, setStep] = useState<RegistrationStep>("STRAIGHT");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [capturedImages, setCapturedImages] = useState<string[]>([]); // Base64 strings
+  const [capturedImages, setCapturedImages] = useState<string[]>([]); // Lưu URI của ảnh
   const [statusMessage, setStatusMessage] = useState("Nhìn thẳng vào camera");
   const isCapturing = useRef(false);
 
   const { faceData, frameProcessor } = useFaceDetection(isProcessing);
-  const { isModelReady, getEmbedding } = useFaceEmbedding();
 
   const resetRegistration = () => {
     setStep("STRAIGHT");
@@ -44,11 +44,11 @@ export default function FaceRegistrationScreen() {
     setIsProcessing(false);
   };
 
-  // Logic tự động chụp
+  // Logic tự động chụp (Giữ nguyên logic góc quay của bạn)
   useEffect(() => {
-    if (!faceData || isProcessing || !isModelReady || step === "DONE") return;
+    if (!faceData || isProcessing || step === "DONE") return;
 
-    const { yawAngle, pitchAngle, rollAngle, leftEyeOpenProbability, rightEyeOpenProbability } = faceData;
+    const { yawAngle, pitchAngle, leftEyeOpenProbability, rightEyeOpenProbability } = faceData;
 
     // Yêu cầu bắt buộc: Mắt phải mở
     const eyesOpen = leftEyeOpenProbability > 0.5 && rightEyeOpenProbability > 0.5;
@@ -58,8 +58,8 @@ export default function FaceRegistrationScreen() {
     }
 
     const isStraight = Math.abs(yawAngle) < 10 && Math.abs(pitchAngle) < 15;
-    const isLeft = yawAngle > 20;
-    const isRight = yawAngle < -20;
+    const isLeft = yawAngle > 10;
+    const isRight = yawAngle < -10;
 
     if (step === "STRAIGHT" && isStraight && !isCapturing.current) {
       handleAutoCapture("Nhìn thẳng thành công! Quay sang trái", "LEFT");
@@ -68,35 +68,41 @@ export default function FaceRegistrationScreen() {
     } else if (step === "RIGHT" && isRight && !isCapturing.current) {
       handleAutoCapture("Quay phải thành công!", "DONE");
     } else {
-      // Hướng dẫn người dùng
       if (step === "STRAIGHT") setStatusMessage("Nhìn thẳng");
       else if (step === "LEFT") setStatusMessage("Quay sang trái");
       else if (step === "RIGHT") setStatusMessage("Quay sang phải");
     }
-  }, [faceData, step, isProcessing, isModelReady]);
+  }, [faceData, step, isProcessing]);
 
+  // THAY ĐỔI Ở ĐÂY: DÙNG HÀM CHỤP GỐC CỦA VISION CAMERA
   const handleAutoCapture = async (nextMessage: string, nextStep: RegistrationStep) => {
-    if (isCapturing.current) return;
+    if (isCapturing.current || !cameraRef.current) return;
     isCapturing.current = true;
     setIsProcessing(true);
     setStatusMessage("Đang chụp...");
 
     try {
-      // Đợi một chút để camera ổn định
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const result = await captureAndCropFace(cameraRef);
-      if (result) {
-        const newImages = [...capturedImages, result.base64];
-        setCapturedImages(newImages);
-        setStatusMessage(nextMessage);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Đợi camera lấy nét
 
-        if (nextStep === "DONE") {
-          await processFinalEmbeddings(newImages);
-        } else {
-          setStep(nextStep);
-        }
+      // Chụp toàn màn hình thay vì dùng hàm crop
+      const photo = await cameraRef.current.takePhoto({
+        flash: 'off',
+        enableShutterSound: false
+      });
+
+      // Tạo đường dẫn file nội bộ (chèn thêm file:// để react native nhận diện chuẩn)
+      const imageUri = `file://${photo.path}`;
+
+      const newImages = [...capturedImages, imageUri];
+      setCapturedImages(newImages);
+      setStatusMessage(nextMessage);
+
+      if (nextStep === "DONE") {
+        await processAndUploadImages(newImages);
+      } else {
+        setStep(nextStep);
       }
+
     } catch (error) {
       console.error("Lỗi khi tự động chụp:", error);
       Alert.alert("Lỗi", "Không thể chụp ảnh tự động. Vui lòng thử lại.", [
@@ -106,62 +112,78 @@ export default function FaceRegistrationScreen() {
       isCapturing.current = false;
     } finally {
       setIsProcessing(false);
-      // isCapturing.current is handled specifically based on flow
       if (nextStep !== "DONE") {
         isCapturing.current = false;
       }
     }
   };
 
-  const processFinalEmbeddings = async (images: string[]) => {
+  // 🚀 HÀM ĐÃ ĐƯỢC TỐI ƯU TỐC ĐỘ: UPLOAD SONG SONG 3 ẢNH
+  // 🚀 HÀM ĐÃ ĐƯỢC TỐI ƯU TỐC ĐỘ + ĐO THỜI GIAN
+  const processAndUploadImages = async (imageUris: string[]) => {
     setIsProcessing(true);
-    setStatusMessage("Đang xử lý vector khuôn mặt...");
+    setStatusMessage("Đang đồng bộ dữ liệu (Siêu tốc)...");
+
     try {
-      const vectors = [];
-      for (const base64 of images) {
-        const vector = await getEmbedding(base64);
-        if (vector) {
-          vectors.push(vector);
-        }
+      // BẮT ĐẦU BẤM GIỜ UPLOAD CLOUDINARY
+      const startUploadTime = Date.now();
+
+      // 1. Tạo ra 3 luồng upload chạy cùng lúc
+      const uploadPromises = imageUris.map((uri) => uploadImageToCloudinary(uri));
+
+      // 2. Chờ cả 3 luồng hoàn thành cùng 1 thời điểm
+      const results = await Promise.all(uploadPromises);
+
+      // KẾT THÚC BẤM GIỜ UPLOAD CLOUDINARY
+      const endUploadTime = Date.now();
+      const uploadDuration = ((endUploadTime - startUploadTime) / 1000).toFixed(2);
+
+      // In ra console thời gian upload
+      console.log(`⏱️ [FRONTEND] Thời gian upload 3 ảnh lên Cloudinary: ${uploadDuration} giây`);
+
+      // 3. Lọc ra các URL thành công
+      const uploadedUrls = results.filter((url) => url !== null);
+
+      if (uploadedUrls.length !== 3) {
+        throw new Error(`Chỉ tải lên được ${uploadedUrls.length}/3 ảnh. Vui lòng thử lại.`);
       }
 
-      console.log("--- KẾT QUẢ ĐĂNG KÝ ---");
-      console.log("Số lượng vector:", vectors.length);
-      console.log("Dữ liệu đóng gói:", JSON.stringify(vectors));
+      console.log("--- 3 URL ĐÃ TẢI LÊN SONG SONG ---", uploadedUrls);
+      setStatusMessage("Đang xác thực với máy chủ AI...");
 
-      // BƯỚC CUỐI: Gửi lên Backend
       const userDataString = await AsyncStorage.getItem("userData");
-
       if (!userDataString) {
-        Alert.alert(
-          "Lỗi",
-          "Không tìm thấy thông tin đăng nhập. Vui lòng đăng nhập lại!",
-        );
+        Alert.alert("Lỗi", "Không tìm thấy thông tin đăng nhập.");
         return;
       }
-      const userData = JSON.parse(userDataString);
-      const currentUserId = userData.id;
 
-      await sendEmbeddingToBackend(currentUserId, vectors as any);
+      const userData = JSON.parse(userDataString);
+
+      // BẮT ĐẦU BẤM GIỜ GỌI BACKEND
+      const startBackendTime = Date.now();
+
+      // Gửi 3 URL cho Node.js Backend
+      await sendRegistrationToBackend(userData.id, uploadedUrls);
+
+      // KẾT THÚC BẤM GIỜ GỌI BACKEND
+      const endBackendTime = Date.now();
+      const backendDuration = ((endBackendTime - startBackendTime) / 1000).toFixed(2);
+      console.log(`⏱️ [FRONTEND] Thời gian chờ Backend & AI xử lý xong: ${backendDuration} giây`);
 
       setStep("DONE");
     } catch (error) {
-      console.error("Lỗi khi xử lý vector:", error);
-      Alert.alert("Lỗi", "Không thể xử lý vector khuôn mặt.");
+      console.error("Lỗi khi upload ảnh:", error);
+      Alert.alert("Lỗi", "Quá trình tải ảnh bị gián đoạn. Vui lòng thử lại.");
+      resetRegistration();
     } finally {
       setIsProcessing(false);
       isCapturing.current = false;
     }
   };
 
-  const sendEmbeddingToBackend = async (
-    userId: string,
-    embeddingVector: number[],
-  ) => {
+  const sendRegistrationToBackend = async (userId: string, urls: string[]) => {
     try {
       const API_URL = API_ENDPOINTS.UPLOAD_FACE;
-
-      console.log("Số lượng phần tử trong vector: ", embeddingVector.length);
 
       const response = await fetch(API_URL, {
         method: "POST",
@@ -170,13 +192,13 @@ export default function FaceRegistrationScreen() {
         },
         body: JSON.stringify({
           userId: userId,
-          embedding: embeddingVector,
+          urls: urls,
         }),
       });
 
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.ok && data.success) {
         console.log("✅ Server trả về thành công:", data);
         await AsyncStorage.setItem("isFaceUpdated", "true");
 
@@ -188,13 +210,13 @@ export default function FaceRegistrationScreen() {
         ]);
       } else {
         console.error("❌ Lỗi từ server:", data);
-        Alert.alert("Thất bại", data.message || "Không thể xác thực", [
+        Alert.alert("Thất bại", data.message || "Không thể xác thực khuôn mặt", [
           { text: "Thử lại", onPress: resetRegistration }
         ]);
       }
     } catch (error) {
       console.error("Lỗi kết nối mạng:", error);
-      Alert.alert("Lỗi", "Lỗi kết nối đến máy chủ!", [
+      Alert.alert("Lỗi", "Lỗi kết nối đến máy chủ Backend!", [
         { text: "Thử lại", onPress: resetRegistration }
       ]);
     }
@@ -216,6 +238,7 @@ export default function FaceRegistrationScreen() {
       />
 
       <View style={styles.overlay}>
+        {/* Mình vẫn giữ cái khung tròn ở đây để người dùng biết căn giữa mặt, nhưng ảnh chụp thực tế sẽ là toàn màn hình */}
         <View style={styles.focusFrame} />
 
         <View style={styles.guideContainer}>
@@ -243,7 +266,7 @@ const styles = StyleSheet.create({
     height: 280,
     borderWidth: 2,
     borderColor: "#00FF00",
-    borderRadius: 140, // Hình tròn cho giống app hiện đại
+    borderRadius: 140,
     backgroundColor: "transparent",
   },
   guideContainer: {
