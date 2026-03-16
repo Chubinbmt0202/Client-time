@@ -20,6 +20,9 @@ import { useFaceDetection } from "./useFaceDetection";
 // 1. IMPORT HÀM CLOUDINARY
 import { uploadImageToCloudinary } from "../constants/cloudinary";
 
+// 🚀 THÊM IMPORT THƯ VIỆN ÉP CÂN ẢNH Ở ĐÂY
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+
 export default function AttendanceScreen() {
   const router = useRouter();
   const device = useCameraDevice("front");
@@ -75,20 +78,28 @@ export default function AttendanceScreen() {
         flash: 'off',
         enableShutterSound: false
       });
-      const imageUri = `file://${photo.path}`;
+      const originalUri = `file://${photo.path}`;
 
-      // 3. Upload 1 tấm ảnh duy nhất lên Cloudinary
+      // ==========================================
+      // 🚀 3. ÉP CÂN ẢNH BẰNG EXPO IMAGE MANIPULATOR
+      // ==========================================
+      setStatusMessage("Đang xử lý ảnh...");
+      const manipResult = await manipulateAsync(
+        originalUri,
+        [{ resize: { width: 500 } }], // Bóp chiều ngang còn 500px
+        {
+          compress: 0.7, // Giảm chất lượng JPEG xuống 70%
+          format: SaveFormat.JPEG
+        }
+      );
+
+      // Lấy link ảnh ĐÃ ĐƯỢC ÉP CÂN
+      const imageUri = manipResult.uri;
+
+      // 4. Upload 1 tấm ảnh duy nhất lên Cloudinary
       setStatusMessage("Đang đồng bộ dữ liệu...");
       const startUploadTime = Date.now();
 
-      const cloudUrl = await uploadImageToCloudinary(imageUri);
-
-      const uploadDuration = ((Date.now() - startUploadTime) / 1000).toFixed(2);
-      console.log(`⏱️ [FRONTEND] Thời gian upload 1 ảnh: ${uploadDuration} giây`);
-
-      if (!cloudUrl) throw new Error("Không thể tải ảnh lên hệ thống");
-
-      // 4. Lấy UserID từ Storage
       const userDataString = await AsyncStorage.getItem("userData");
       if (!userDataString) {
         Alert.alert("Lỗi", "Không tìm thấy thông tin nhân viên. Vui lòng đăng nhập lại.");
@@ -96,8 +107,20 @@ export default function AttendanceScreen() {
         return;
       }
       const userId = JSON.parse(userDataString).id;
+      setStatusMessage("Đang đồng bộ dữ liệu...");
 
-      // 5. Gửi 1 URL lên Backend xác thực
+      const cloudUrl = await uploadImageToCloudinary(imageUri, userId);
+
+      const uploadDuration = ((Date.now() - startUploadTime) / 1000).toFixed(2);
+      console.log(`⏱️ [FRONTEND] Thời gian upload 1 ảnh: ${uploadDuration} giây`);
+
+      if (!cloudUrl) throw new Error("Không thể tải ảnh lên hệ thống");
+
+      // 5. Lấy UserID từ Storage
+
+
+
+      // 6. Gửi 1 URL lên Backend xác thực
       setStatusMessage("Đang xác thực khuôn mặt...");
       const startBackendTime = Date.now();
 
@@ -114,7 +137,7 @@ export default function AttendanceScreen() {
       const backendDuration = ((Date.now() - startBackendTime) / 1000).toFixed(2);
       console.log(`⏱️ [FRONTEND] Thời gian AI xử lý và phản hồi: ${backendDuration} giây`);
 
-      // 6. Xử lý kết quả trả về
+      // 7. Xử lý kết quả trả về
       if (response.ok && data.success) {
         console.log("✅ Nhận diện thành công:", data);
 

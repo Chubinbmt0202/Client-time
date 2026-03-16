@@ -19,6 +19,7 @@ import { API_ENDPOINTS } from "../constants/api";
 import { useFaceDetection } from "./useFaceDetection";
 
 // IMPORT HÀM CLOUDINARY
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { uploadImageToCloudinary } from "../constants/cloudinary";
 
 type RegistrationStep = "STRAIGHT" | "LEFT" | "RIGHT" | "DONE";
@@ -74,7 +75,7 @@ export default function FaceRegistrationScreen() {
     }
   }, [faceData, step, isProcessing]);
 
-  // THAY ĐỔI Ở ĐÂY: DÙNG HÀM CHỤP GỐC CỦA VISION CAMERA
+  // THAY ĐỔI Ở ĐÂY: DÙNG HÀM CHỤP GỐC VÀ ÉP CÂN NGAY TRÊN ĐIỆN THOẠI
   const handleAutoCapture = async (nextMessage: string, nextStep: RegistrationStep) => {
     if (isCapturing.current || !cameraRef.current) return;
     isCapturing.current = true;
@@ -84,15 +85,30 @@ export default function FaceRegistrationScreen() {
     try {
       await new Promise(resolve => setTimeout(resolve, 500)); // Đợi camera lấy nét
 
-      // Chụp toàn màn hình thay vì dùng hàm crop
+      // 1. Chụp toàn màn hình (Ảnh gốc nặng 1.9MB)
       const photo = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false
       });
 
-      // Tạo đường dẫn file nội bộ (chèn thêm file:// để react native nhận diện chuẩn)
-      const imageUri = `file://${photo.path}`;
+      const originalUri = `file://${photo.path}`;
 
+      // ==========================================
+      // 🚀 2. ÉP CÂN ẢNH BẰNG EXPO IMAGE MANIPULATOR
+      // ==========================================
+      const manipResult = await manipulateAsync(
+        originalUri,
+        [{ resize: { width: 500 } }], // Thu nhỏ chiều ngang còn 500px
+        {
+          compress: 0.7, // Ép chất lượng xuống 70%
+          format: SaveFormat.JPEG // Gọi trực tiếp SaveFormat
+        }
+      );
+
+      // Lấy link ảnh đã ép cân
+      const imageUri = manipResult.uri;
+
+      // 3. Tiến hành lưu vào mảng như bình thường
       const newImages = [...capturedImages, imageUri];
       setCapturedImages(newImages);
       setStatusMessage(nextMessage);
@@ -125,50 +141,31 @@ export default function FaceRegistrationScreen() {
     setStatusMessage("Đang đồng bộ dữ liệu (Siêu tốc)...");
 
     try {
-      // BẮT ĐẦU BẤM GIỜ UPLOAD CLOUDINARY
-      const startUploadTime = Date.now();
-
-      // 1. Tạo ra 3 luồng upload chạy cùng lúc
-      const uploadPromises = imageUris.map((uri) => uploadImageToCloudinary(uri));
-
-      // 2. Chờ cả 3 luồng hoàn thành cùng 1 thời điểm
-      const results = await Promise.all(uploadPromises);
-
-      // KẾT THÚC BẤM GIỜ UPLOAD CLOUDINARY
-      const endUploadTime = Date.now();
-      const uploadDuration = ((endUploadTime - startUploadTime) / 1000).toFixed(2);
-
-      // In ra console thời gian upload
-      console.log(`⏱️ [FRONTEND] Thời gian upload 3 ảnh lên Cloudinary: ${uploadDuration} giây`);
-
-      // 3. Lọc ra các URL thành công
-      const uploadedUrls = results.filter((url) => url !== null);
-
-      if (uploadedUrls.length !== 3) {
-        throw new Error(`Chỉ tải lên được ${uploadedUrls.length}/3 ảnh. Vui lòng thử lại.`);
-      }
-
-      console.log("--- 3 URL ĐÃ TẢI LÊN SONG SONG ---", uploadedUrls);
-      setStatusMessage("Đang xác thực với máy chủ AI...");
-
+      // 🚀 1. LẤY ID NHÂN VIÊN RA TRƯỚC
       const userDataString = await AsyncStorage.getItem("userData");
       if (!userDataString) {
         Alert.alert("Lỗi", "Không tìm thấy thông tin đăng nhập.");
         return;
       }
+      const userId = JSON.parse(userDataString).id;
 
-      const userData = JSON.parse(userDataString);
+      // BẮT ĐẦU BẤM GIỜ UPLOAD
+      const startUploadTime = Date.now();
 
-      // BẮT ĐẦU BẤM GIỜ GỌI BACKEND
-      const startBackendTime = Date.now();
+      // 🚀 2. TRUYỀN THÊM userId VÀO HÀM UPLOAD
+      const uploadPromises = imageUris.map((uri) => uploadImageToCloudinary(uri, userId));
 
-      // Gửi 3 URL cho Node.js Backend
-      await sendRegistrationToBackend(userData.id, uploadedUrls);
+      const results = await Promise.all(uploadPromises);
+      const endUploadTime = Date.now();
+      console.log(`⏱️ [FRONTEND] Upload 3 ảnh: ${((endUploadTime - startUploadTime) / 1000).toFixed(2)}s`);
 
-      // KẾT THÚC BẤM GIỜ GỌI BACKEND
-      const endBackendTime = Date.now();
-      const backendDuration = ((endBackendTime - startBackendTime) / 1000).toFixed(2);
-      console.log(`⏱️ [FRONTEND] Thời gian chờ Backend & AI xử lý xong: ${backendDuration} giây`);
+      const uploadedUrls = results.filter((url) => url !== null);
+      if (uploadedUrls.length !== 3) throw new Error("Chỉ tải lên được một phần ảnh.");
+
+      setStatusMessage("Đang xác thực với máy chủ AI...");
+
+      // 3. Gửi URL cho Node.js Backend
+      await sendRegistrationToBackend(userId, uploadedUrls);
 
       setStep("DONE");
     } catch (error) {
