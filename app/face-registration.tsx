@@ -197,7 +197,18 @@ export default function FaceRegistrationScreen() {
 
       if (response.ok && data.success) {
         console.log("✅ Server trả về thành công:", data);
+        // Cập nhật cờ lẻ
         await AsyncStorage.setItem("isFaceUpdated", "true");
+
+        // =======================================================
+        // 🚀 CẬP NHẬT LUÔN CỤC DỮ LIỆU TỔNG CHO TRANG HOME ĐỌC
+        // =======================================================
+        const userDataString = await AsyncStorage.getItem("userData");
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          userData.is_face_updated = true; // Đổi trạng thái bên trong object
+          await AsyncStorage.setItem("userData", JSON.stringify(userData)); // Lưu đè lại
+        }
 
         Alert.alert("Thành công", "Đã đăng ký khuôn mặt thành công!", [
           {

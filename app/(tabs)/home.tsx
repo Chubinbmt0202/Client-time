@@ -18,7 +18,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { API_ENDPOINTS } from "../../constants/api";
 
 export default function DashboardScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -29,57 +28,66 @@ export default function DashboardScreen() {
     role: string;
     username: string;
   }>({ name: "", id: "", role: "", username: "" });
+
+  // 🚀 DỮ LIỆU ĐIỂM DANH HÔM NAY
   const [attendance, setAttendance] = useState<{
     checkIn: string | null;
     checkOut: string | null;
   }>({ checkIn: null, checkOut: null });
+
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
   const router = useRouter();
 
-  const fetchAttendance = async (userId: string) => {
-    try {
-      // Note: User specified port 3001 for attendance
-      const response = await fetch(API_ENDPOINTS.ATTENDANCE(userId));
-      if (response.ok) {
-        const data = await response.json();
-        setAttendance({
-          checkIn: data.checkIn || null,
-          checkOut: data.checkOut || null,
-        });
-      }
-    } catch (error) {
-      console.error("Lỗi khi lấy thông tin chấm công:", error);
-    }
-  };
-
   const loadSession = useCallback(async () => {
     try {
       let updated = false;
-      console.log("loadSession");
-
-      const faceStatus = await AsyncStorage.getItem("isFaceUpdated");
-      if (faceStatus !== null) updated = faceStatus === "true";
 
       const userStr = await AsyncStorage.getItem("userData");
+      console.log("Dữ liệu nè má:", userStr);
       if (userStr) {
         const user = JSON.parse(userStr);
         const userProfile = {
           name: user.full_name || "Người dùng",
-          id: user.employee_id || user.username || "NV000",
+          id: user.id || "NV000",
           role: user.role === "admin" ? "Quản trị viên" : "Nhân viên",
           username: user.username || "",
         };
         setProfile(userProfile);
 
-        // Fetch attendance data
-        if (userProfile.username) {
-          await fetchAttendance(userProfile.username);
-        }
-
-        // Fallback in case root isFaceUpdated didn't save correctly
+        // Cập nhật trạng thái đã đăng ký khuôn mặt chưa
         if (user.is_face_updated === true) {
           updated = true;
+        }
+
+        // ==========================================
+        // 🚀 LẤY DỮ LIỆU ĐIỂM DANH TỪ ASYNC STORAGE
+        // ==========================================
+        const history = user.attendance_history;
+        if (history && history.length > 0) {
+          // Lấy mốc thời gian hiện tại của điện thoại
+          const today = new Date();
+
+          // Tìm record của ngày hôm nay bằng cách so sánh chính xác Ngày/Tháng/Năm
+          const todayRecord = history.find((record: { log_date: string | number | Date; }) => {
+            const recordDate = new Date(record.log_date);
+
+            return (
+              recordDate.getDate() === today.getDate() &&
+              recordDate.getMonth() === today.getMonth() &&
+              recordDate.getFullYear() === today.getFullYear()
+            );
+          });
+
+          // Nếu tìm thấy, đưa thẳng vào state để UI bên dưới hiển thị
+          if (todayRecord) {
+            setAttendance({
+              checkIn: todayRecord.check_in_time,
+              checkOut: todayRecord.check_out_time
+            });
+          } else {
+            setAttendance({ checkIn: null, checkOut: null });
+          }
         }
       }
 
@@ -281,18 +289,39 @@ export default function DashboardScreen() {
           /* Normal Check-in UI */
           <>
             {/* Check-in Button */}
-            <TouchableOpacity
-              style={styles.checkInButton}
-              onPress={() => router.push("/face-attendance")}
-            >
-              <MaterialCommunityIcons
-                name="face-recognition"
-                size={24}
-                color="#FFFFFF"
-                style={styles.checkInIcon}
-              />
-              <Text style={styles.checkInText}>Chấm công ngay</Text>
-            </TouchableOpacity>
+            {/* KIỂM TRA TRẠNG THÁI NÚT CHẤM CÔNG */}
+            {attendance.checkIn && attendance.checkOut ? (
+              // Trạng thái 3: Đã chấm cả vào lẫn ra -> Khóa nút
+              <View style={[styles.checkInButton, { backgroundColor: "#94A3B8", shadowOpacity: 0 }]}>
+                <Ionicons
+                  name="checkmark-done-circle"
+                  size={24}
+                  color="#FFFFFF"
+                  style={styles.checkInIcon}
+                />
+                <Text style={styles.checkInText}>Đã hoàn thành hôm nay</Text>
+              </View>
+            ) : (
+              // Trạng thái 1 & 2: Cần chấm công vào HOẶC ra
+              <TouchableOpacity
+                style={[
+                  styles.checkInButton,
+                  // Đổi sang màu cam/vàng (#F59E0B) nếu là chấm công ra để gây chú ý
+                  attendance.checkIn ? { backgroundColor: "#F59E0B", shadowColor: "#F59E0B" } : {}
+                ]}
+                onPress={() => router.push("/face-attendance")}
+              >
+                <MaterialCommunityIcons
+                  name="face-recognition"
+                  size={24}
+                  color="#FFFFFF"
+                  style={styles.checkInIcon}
+                />
+                <Text style={styles.checkInText}>
+                  {!attendance.checkIn ? "Chấm công vào" : "Chấm công ra"}
+                </Text>
+              </TouchableOpacity>
+            )}
 
             {/* Today's Status */}
             <View style={styles.sectionHeader}>

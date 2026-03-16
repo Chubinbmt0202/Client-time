@@ -28,9 +28,18 @@ export default function AttendanceScreen() {
   const device = useCameraDevice("front");
   const { hasPermission, requestPermission } = useCameraPermission();
   const cameraRef = useRef<Camera>(null!);
+  const [isReady, setIsReady] = useState(false);
+  // 🚀 Đếm 1.5 giây sau khi mở màn hình mới cho phép AI bắt đầu canh chụp
+  const [statusMessage, setStatusMessage] = useState("Đang khởi động");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+      setStatusMessage("Nhìn thẳng để chấm công");
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("Nhìn thẳng để chấm công");
 
   const isCapturing = useRef(false);
 
@@ -116,10 +125,6 @@ export default function AttendanceScreen() {
 
       if (!cloudUrl) throw new Error("Không thể tải ảnh lên hệ thống");
 
-      // 5. Lấy UserID từ Storage
-
-
-
       // 6. Gửi 1 URL lên Backend xác thực
       setStatusMessage("Đang xác thực khuôn mặt...");
       const startBackendTime = Date.now();
@@ -139,15 +144,56 @@ export default function AttendanceScreen() {
 
       // 7. Xử lý kết quả trả về
       if (response.ok && data.success) {
-        console.log("✅ Nhận diện thành công:", data);
+        const currentUserDataStr = await AsyncStorage.getItem("userData");
+        if (currentUserDataStr) {
+          const userDataObj = JSON.parse(currentUserDataStr);
 
-        // Hiển thị tên (nếu backend có trả về) và độ lệch khuôn mặt (match_distance)
-        const userName = data.data?.full_name || "Nhân viên";
-        const distance = data.match_distance ? `(Độ lệch: ${data.match_distance})` : "";
+          // Đảm bảo mảng history tồn tại
+          if (!userDataObj.attendance_history) {
+            userDataObj.attendance_history = [];
+          }
 
-        Alert.alert("Thành công", `Chào ${userName}! Chấm công thành công.\n${distance}`, [
-          { text: "OK", onPress: () => router.replace("/(tabs)/home") }
-        ]);
+          const today = new Date();
+          // Tìm xem hôm nay có record nào chưa (giống logic bên trang Home)
+          const todayIndex = userDataObj.attendance_history.findIndex((record: any) => {
+            const recordDate = new Date(record.log_date);
+            return (
+              recordDate.getDate() === today.getDate() &&
+              recordDate.getMonth() === today.getMonth() &&
+              recordDate.getFullYear() === today.getFullYear()
+            );
+          });
+
+          // API trả về data.data.type là "Check-in" hoặc "Check-out" (mà ta đã viết bên Node.js)
+          if (data.data?.type === "Check-in") {
+            // Thêm record mới lên đầu mảng
+            userDataObj.attendance_history.unshift({
+              log_date: data.data.time, // Lấy mốc thời gian này làm ngày log
+              check_in_time: data.data.time,
+              check_out_time: null,
+              status: "present"
+            });
+          } else if (data.data?.type === "Check-out" && todayIndex !== -1) {
+            // Cập nhật giờ check-out cho record hôm nay
+            userDataObj.attendance_history[todayIndex].check_out_time = data.data.time;
+          }
+
+          // Lưu đè lại vào AsyncStorage
+          await AsyncStorage.setItem("userData", JSON.stringify(userDataObj));
+        }
+
+        // Hiển thị tên và thông báo
+        const userName = data.data?.fullname || "Nhân viên";
+        const actionType = data.data?.type === "Check-in" ? "vào" : "ra";
+
+        Alert.alert(
+          "Thành công",
+          `Chào ${userName}! Bạn đã chấm công ${actionType} thành công.`,
+          [
+            // Mẹo: Dùng router.replace để thay thế hẳn màn hình, không bị xếp chồng trang
+            { text: "OK", onPress: () => router.replace("/(tabs)/home") }
+          ]
+        );
       } else {
         console.error("❌ Nhận diện thất bại:", data);
         Alert.alert("Không khớp", data.message || "Khuôn mặt này không khớp với hệ thống.", [
