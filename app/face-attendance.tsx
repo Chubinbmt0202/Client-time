@@ -16,7 +16,7 @@ import {
 } from "react-native-vision-camera";
 import { API_ENDPOINTS } from "../constants/api";
 
-import { useFaceDetection } from "./useFaceDetection";
+import { useFaceDetection } from "../hooks/useFaceDetection";
 // 1. IMPORT HÀM CLOUDINARY
 import { uploadImageToCloudinary } from "../constants/cloudinary";
 

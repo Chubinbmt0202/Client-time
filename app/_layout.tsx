@@ -328,6 +328,14 @@ export default function RootLayout() {
             name="face-attendance"
             options={{ headerShown: false, swipeEnabled: false }}
           />
+          <Drawer.Screen
+            name="leave-success"
+            options={{ headerShown: false, swipeEnabled: false }}
+          />
+          <Drawer.Screen
+            name="leave-history"
+            options={{ headerShown: false, swipeEnabled: false }}
+          />
         </Drawer>
       </GestureHandlerRootView>
     </View>
@@ -408,7 +416,7 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     flex: 1,
-    paddingTop: 12,
+    paddingTop: 1,
   },
   menuItem: {
     flexDirection: "row",

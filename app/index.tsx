@@ -50,12 +50,18 @@ export default function LoginScreen() {
       console.log("Login Response:", loginData);
       if (loginRes.ok) {
         // Save auth data to storage
-        await AsyncStorage.setItem("userToken", loginData.token);
-        await AsyncStorage.setItem("userData", JSON.stringify(loginData.data));
+        if (loginData.token) {
+          await AsyncStorage.setItem("userToken", loginData.token);
+        }
+        
+        if (loginData.data) {
+          await AsyncStorage.setItem("userData", JSON.stringify(loginData.data));
+        }
+
         // Using string "true"/"false" for boolean
         await AsyncStorage.setItem(
           "isFaceUpdated",
-          String(loginData.is_face_updated),
+          String(loginData.is_face_updated || false),
         );
 
         Alert.alert("Thành công", "Đăng nhập thành công!");

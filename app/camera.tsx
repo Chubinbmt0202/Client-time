@@ -17,9 +17,9 @@ import {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_ENDPOINTS } from "../constants/api";
-import { captureAndCropFace } from "./captureAndCrop";
-import { useFaceDetection } from "./useFaceDetection";
-import { useFaceEmbedding } from "./useFaceEmbedding";
+import { useFaceDetection } from "../hooks/useFaceDetection";
+import { useFaceEmbedding } from "../hooks/useFaceEmbedding";
+import { captureAndCropFace } from "../utils/captureAndCrop";
 
 export default function BasicCameraScreen() {
   const router = useRouter();
