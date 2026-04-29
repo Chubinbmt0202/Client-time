@@ -1,11 +1,11 @@
-import { useRef, useState, useEffect } from "react";
-import { Alert } from "react-native";
-import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { Alert } from "react-native";
 import { API_ENDPOINTS } from "../constants/api";
 import { uploadImageToCloudinary } from "../constants/cloudinary";
-import { useFaceDetection } from "../app/useFaceDetection"; // Updated path
+import { useFaceDetection } from "./useFaceDetection";
 
 export type RegistrationStep = "STRAIGHT" | "LEFT" | "RIGHT" | "DONE";
 
@@ -13,7 +13,7 @@ export const useFaceRegistration = (cameraRef: React.RefObject<any>) => {
   const router = useRouter();
   const [step, setStep] = useState<RegistrationStep>("STRAIGHT");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [capturedImages, setCapturedImages] = useState<string[]>([]);
+  const [capturedImages, setCapturedImages] = useState<string[]>([]); ``
   const [statusMessage, setStatusMessage] = useState("Nhìn thẳng vào camera");
   const isCapturing = useRef(false);
 

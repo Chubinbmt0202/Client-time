@@ -50,7 +50,6 @@ export default function LoginScreen() {
       if (loginRes.ok) {
         // Save auth data to storage
 
-
         Alert.alert("Thành công", "Đăng nhập thành công!");
         // @ts-ignore
         router.replace("/(tabs)/home");
