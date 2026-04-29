@@ -2,6 +2,7 @@ import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ActivityIndicator,
   Alert,
@@ -48,7 +49,35 @@ export default function LoginScreen() {
       console.log("Login Status:", loginRes.status);
       console.log("Login Response:", loginData);
       if (loginRes.ok) {
+        // Fetch dashboard data
+        const id_nhan_vien = loginData.data.id_nhan_vien;
+        let attendance_history = [];
+        try {
+          const dashboardRes = await fetch(API_ENDPOINTS.DASHBOARD(id_nhan_vien));
+          const dashboardData = await dashboardRes.json();
+          if (dashboardRes.ok && dashboardData.success) {
+             // Map backend format to frontend format
+             attendance_history = dashboardData.data.recent_attendance_history.map((record: any) => ({
+                log_date: record.gio_vao,
+                check_in_time: record.gio_vao,
+                check_out_time: record.gio_ra,
+                note: record.ghi_chu,
+                status: record.gio_ra ? "checked_out" : "present"
+             }));
+          }
+        } catch (e) {
+          console.error("Lỗi lấy dashboard:", e);
+        }
+
         // Save auth data to storage
+        const userDataToSave = {
+          ...loginData.data,
+          id: id_nhan_vien,
+          is_face_updated: loginData.is_face_updated,
+          attendance_history: attendance_history
+        };
+        await AsyncStorage.setItem("userData", JSON.stringify(userDataToSave));
+        await AsyncStorage.setItem("isFaceUpdated", String(loginData.is_face_updated));
 
         Alert.alert("Thành công", "Đăng nhập thành công!");
         // @ts-ignore

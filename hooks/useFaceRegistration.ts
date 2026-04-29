@@ -111,6 +111,7 @@ export const useFaceRegistration = (cameraRef: React.RefObject<any>) => {
 
     try {
       const userDataString = await AsyncStorage.getItem("userData");
+      console.log("Data login: ", userDataString);
       if (!userDataString) {
         Alert.alert("Lỗi", "Không tìm thấy thông tin đăng nhập.");
         return;

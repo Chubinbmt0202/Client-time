@@ -14,6 +14,7 @@ import {
   useCameraDevice,
   useCameraPermission,
 } from "react-native-vision-camera";
+import { useIsFocused } from "@react-navigation/native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_ENDPOINTS } from "../constants/api";
@@ -28,6 +29,7 @@ export default function BasicCameraScreen() {
   const device = useCameraDevice("front");
   const { hasPermission, requestPermission } = useCameraPermission();
   const cameraRef = useRef<Camera>(null!);
+  const isFocused = useIsFocused();
 
   // State quản lý tiến trình và kết quả
   const [embedding, setEmbedding] = useState<number[] | null>(null);
@@ -202,7 +204,7 @@ export default function BasicCameraScreen() {
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
         device={device}
-        isActive={true}
+        isActive={isFocused}
         photo={true}
         frameProcessor={frameProcessor}
         pixelFormat="yuv"

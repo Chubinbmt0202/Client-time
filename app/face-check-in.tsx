@@ -14,6 +14,7 @@ import {
   useCameraDevice,
   useCameraPermission,
 } from "react-native-vision-camera";
+import { useIsFocused } from "@react-navigation/native";
 import { API_ENDPOINTS } from "../constants/api";
 
 import { useFaceDetection } from "../hooks/useFaceDetection";
@@ -28,6 +29,7 @@ export default function CheckInScreen() {
   const device = useCameraDevice("front");
   const { hasPermission, requestPermission } = useCameraPermission();
   const cameraRef = useRef<Camera>(null!);
+  const isFocused = useIsFocused();
   const [isReady, setIsReady] = useState(false);
   // 🚀 Đếm 1.5 giây sau khi mở màn hình mới cho phép AI bắt đầu canh chụp
   const [statusMessage, setStatusMessage] = useState("Đang khởi động");
@@ -216,7 +218,7 @@ export default function CheckInScreen() {
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
         device={device}
-        isActive={true}
+        isActive={isFocused}
         photo={true}
         frameProcessor={frameProcessor}
         pixelFormat="yuv"

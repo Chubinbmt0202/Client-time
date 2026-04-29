@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
+import { useIsFocused } from "@react-navigation/native";
 
 import { FocusFrame } from "../components/FaceRegistration/FocusFrame";
 import { GuideOverlay } from "../components/FaceRegistration/GuideOverlay";
@@ -11,6 +12,7 @@ export default function FaceRegistrationScreen() {
   const device = useCameraDevice("front");
   const { hasPermission, requestPermission } = useCameraPermission();
   const cameraRef = useRef<Camera>(null!);
+  const isFocused = useIsFocused();
 
   const {
     step,
@@ -44,7 +46,7 @@ export default function FaceRegistrationScreen() {
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
         device={device}
-        isActive={true}
+        isActive={isFocused}
         photo={true}
         frameProcessor={frameProcessor}
         pixelFormat="yuv"

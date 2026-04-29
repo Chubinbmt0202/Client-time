@@ -69,8 +69,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "4df8d0c9-9e85-4b52-b0bf-4778c5e6b751"
+        "projectId": "e0c44d27-a348-4b25-85bc-582fe1533484"
       }
-    }
+    },
+    "owner": "trunganh_passenger"
   }
 }
