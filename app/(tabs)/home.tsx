@@ -19,6 +19,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const SHIFT_START_HOURS = 8;
+const SHIFT_START_MINUTES = 0;
+const SHIFT_END_HOURS = 17;
+const SHIFT_END_MINUTES = 0;
+
 export default function DashboardScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFaceUpdated, setIsFaceUpdated] = useState(false);
@@ -135,6 +140,44 @@ export default function DashboardScreen() {
       return `${formatTime(displayHours)}:${formatTime(minutes)} ${ampm}`;
     } catch (e) {
       return "--:--";
+    }
+  };
+
+  const getCheckInStatus = (checkInTime: string | null) => {
+    if (!checkInTime) return "Chưa chấm";
+    try {
+      const checkInDate = new Date(checkInTime);
+      const checkInHours = checkInDate.getHours();
+      const checkInMinutes = checkInDate.getMinutes();
+
+      if (
+        checkInHours > SHIFT_START_HOURS ||
+        (checkInHours === SHIFT_START_HOURS && checkInMinutes > SHIFT_START_MINUTES)
+      ) {
+        const lateMinutes =
+          (checkInHours - SHIFT_START_HOURS) * 60 +
+          (checkInMinutes - SHIFT_START_MINUTES);
+        return `Đi trễ (${lateMinutes} phút)`;
+      }
+      return "Đúng giờ";
+    } catch (e) {
+      return "Đúng giờ";
+    }
+  };
+
+  const isLate = (checkInTime: string | null) => {
+    if (!checkInTime) return false;
+    try {
+      const checkInDate = new Date(checkInTime);
+      const checkInHours = checkInDate.getHours();
+      const checkInMinutes = checkInDate.getMinutes();
+
+      return (
+        checkInHours > SHIFT_START_HOURS ||
+        (checkInHours === SHIFT_START_HOURS && checkInMinutes > SHIFT_START_MINUTES)
+      );
+    } catch (e) {
+      return false;
     }
   };
 
@@ -288,40 +331,46 @@ export default function DashboardScreen() {
         ) : (
           /* Normal Check-in UI */
           <>
-            {/* Check-in Button */}
-            {/* KIỂM TRA TRẠNG THÁI NÚT CHẤM CÔNG */}
-            {attendance.checkIn && attendance.checkOut ? (
-              // Trạng thái 3: Đã chấm cả vào lẫn ra -> Khóa nút
-              <View style={[styles.checkInButton, { backgroundColor: "#94A3B8", shadowOpacity: 0 }]}>
-                <Ionicons
-                  name="checkmark-done-circle"
-                  size={24}
-                  color="#FFFFFF"
-                  style={styles.checkInIcon}
-                />
-                <Text style={styles.checkInText}>Đã hoàn thành hôm nay</Text>
-              </View>
-            ) : (
-              // Trạng thái 1 & 2: Cần chấm công vào HOẶC ra
+            {/* Check-in & Check-out Buttons */}
+            <View style={styles.attendanceButtonsContainer}>
+              {/* Nút Chấm công vào */}
               <TouchableOpacity
                 style={[
-                  styles.checkInButton,
-                  // Đổi sang màu cam/vàng (#F59E0B) nếu là chấm công ra để gây chú ý
-                  attendance.checkIn ? { backgroundColor: "#F59E0B", shadowColor: "#F59E0B" } : {}
+                  styles.attendanceButton,
+                  attendance.checkIn ? styles.disabledAttendanceBtn : styles.checkInBtn
                 ]}
-                onPress={() => router.push("/face-attendance")}
+                onPress={() => router.push("/face-check-in")}
+                disabled={!!attendance.checkIn}
               >
                 <MaterialCommunityIcons
-                  name="face-recognition"
+                  name="login"
                   size={24}
-                  color="#FFFFFF"
-                  style={styles.checkInIcon}
+                  color={attendance.checkIn ? "#94A3B8" : "#FFFFFF"}
                 />
-                <Text style={styles.checkInText}>
-                  {!attendance.checkIn ? "Chấm công vào" : "Chấm công ra"}
+                <Text style={[styles.attendanceBtnText, attendance.checkIn && styles.disabledBtnText]}>
+                  Vào ca
                 </Text>
               </TouchableOpacity>
-            )}
+
+              {/* Nút Chấm công ra */}
+              <TouchableOpacity
+                style={[
+                  styles.attendanceButton,
+                  (attendance.checkIn && !attendance.checkOut) ? styles.checkOutBtn : styles.disabledAttendanceBtn
+                ]}
+                onPress={() => router.push("/face-check-out")}
+                disabled={!attendance.checkIn || !!attendance.checkOut}
+              >
+                <MaterialCommunityIcons
+                  name="logout"
+                  size={24}
+                  color={(attendance.checkIn && !attendance.checkOut) ? "#FFFFFF" : "#94A3B8"}
+                />
+                <Text style={[styles.attendanceBtnText, !(attendance.checkIn && !attendance.checkOut) && styles.disabledBtnText]}>
+                  Ra ca
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Today's Status */}
             <View style={styles.sectionHeader}>
@@ -332,19 +381,25 @@ export default function DashboardScreen() {
               <View
                 style={[
                   styles.statusCard,
-                  attendance.checkIn ? styles.statusCardIn : styles.statusCardOut,
+                  attendance.checkIn
+                    ? (isLate(attendance.checkIn) ? styles.statusCardLate : styles.statusCardIn)
+                    : styles.statusCardOut,
                 ]}
               >
                 <View style={styles.statusCardHeader}>
                   <Ionicons
                     name="enter-outline"
                     size={20}
-                    color={attendance.checkIn ? "#16A34A" : "#64748B"}
+                    color={
+                      attendance.checkIn
+                        ? (isLate(attendance.checkIn) ? "#D97706" : "#16A34A")
+                        : "#64748B"
+                    }
                   />
                   <Text
                     style={
                       attendance.checkIn
-                        ? styles.statusCardTitleIn
+                        ? (isLate(attendance.checkIn) ? styles.statusCardTitleLate : styles.statusCardTitleIn)
                         : styles.statusCardTitleOut
                     }
                   >
@@ -361,11 +416,11 @@ export default function DashboardScreen() {
                 <Text
                   style={
                     attendance.checkIn
-                      ? styles.statusSubtitleIn
+                      ? (isLate(attendance.checkIn) ? styles.statusSubtitleLate : styles.statusSubtitleIn)
                       : styles.statusSubtitleOut
                   }
                 >
-                  {attendance.checkIn ? "Đúng giờ" : "Chưa chấm"}
+                  {getCheckInStatus(attendance.checkIn)}
                 </Text>
               </View>
 
@@ -575,27 +630,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#64748B",
   },
-  checkInButton: {
-    backgroundColor: "#1C75FF",
+  attendanceButtonsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 32,
+  },
+  attendanceButton: {
+    flex: 1,
     borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 16,
-    marginBottom: 32,
-    shadowColor: "#1C75FF",
+    gap: 8,
+    elevation: 4,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 4,
   },
-  checkInIcon: {
-    marginRight: 8,
+  checkInBtn: {
+    backgroundColor: "#1C75FF",
+    shadowColor: "#1C75FF",
   },
-  checkInText: {
+  checkOutBtn: {
+    backgroundColor: "#F59E0B",
+    shadowColor: "#F59E0B",
+  },
+  disabledAttendanceBtn: {
+    backgroundColor: "#F1F5F9",
+    shadowOpacity: 0,
+    elevation: 0,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  attendanceBtnText: {
     color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  disabledBtnText: {
+    color: "#94A3B8",
   },
   sectionHeader: {
     flexDirection: "row",
@@ -627,6 +701,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#F0FDF4",
     borderColor: "#DCFCE7",
   },
+  statusCardLate: {
+    backgroundColor: "#FFFBEB", // Amber-50
+    borderColor: "#FEF3C7", // Amber-100
+  },
   statusCardOut: {
     backgroundColor: "#F8FAFC",
     borderColor: "#E2E8F0",
@@ -639,6 +717,12 @@ const styles = StyleSheet.create({
   statusCardTitleIn: {
     fontSize: 14,
     color: "#16A34A",
+    marginLeft: 6,
+    fontWeight: "500",
+  },
+  statusCardTitleLate: {
+    fontSize: 14,
+    color: "#D97706", // Amber-600
     marginLeft: 6,
     fontWeight: "500",
   },
@@ -664,6 +748,10 @@ const styles = StyleSheet.create({
   statusSubtitleIn: {
     fontSize: 13,
     color: "#16A34A",
+  },
+  statusSubtitleLate: {
+    fontSize: 13,
+    color: "#D97706", // Amber-600
   },
   statusSubtitleOut: {
     fontSize: 13,

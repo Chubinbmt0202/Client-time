@@ -23,7 +23,7 @@ import { uploadImageToCloudinary } from "../constants/cloudinary";
 // 🚀 THÊM IMPORT THƯ VIỆN ÉP CÂN ẢNH Ở ĐÂY
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
-export default function AttendanceScreen() {
+export default function CheckOutScreen() {
   const router = useRouter();
   const device = useCameraDevice("front");
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -34,7 +34,7 @@ export default function AttendanceScreen() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsReady(true);
-      setStatusMessage("Nhìn thẳng để chấm công");
+      setStatusMessage("Nhìn thẳng để chấm công ra");
     }, 1500);
     return () => clearTimeout(timer);
   }, []);
@@ -49,7 +49,7 @@ export default function AttendanceScreen() {
   const resetAttendance = () => {
     isCapturing.current = false;
     setIsProcessing(false);
-    setStatusMessage("Nhìn thẳng để chấm công");
+    setStatusMessage("Nhìn thẳng để chấm công ra");
   };
 
   // Logic tự động chụp khi nhìn thẳng
@@ -76,7 +76,7 @@ export default function AttendanceScreen() {
     if (isCapturing.current || !cameraRef.current) return;
     isCapturing.current = true;
     setIsProcessing(true);
-    setStatusMessage("Đang chụp ảnh...");
+    setStatusMessage("Đang chụp ảnh ra...");
 
     try {
       // 1. Chờ camera lấy nét
@@ -134,8 +134,8 @@ export default function AttendanceScreen() {
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Gửi { userId, url } thay vì embedding
-        body: JSON.stringify({ userId: userId, url: cloudUrl }),
+        // Gửi { userId, url, intent: "check-out" }
+        body: JSON.stringify({ userId: userId, url: cloudUrl, intent: "check-out" }),
       });
 
       const data = await response.json();
@@ -165,15 +165,7 @@ export default function AttendanceScreen() {
           });
 
           // API trả về data.data.type là "Check-in" hoặc "Check-out" (mà ta đã viết bên Node.js)
-          if (data.data?.type === "Check-in") {
-            // Thêm record mới lên đầu mảng
-            userDataObj.attendance_history.unshift({
-              log_date: data.data.time, // Lấy mốc thời gian này làm ngày log
-              check_in_time: data.data.time,
-              check_out_time: null,
-              status: "present"
-            });
-          } else if (data.data?.type === "Check-out" && todayIndex !== -1) {
+          if (data.data?.type === "Check-out" && todayIndex !== -1) {
             // Cập nhật giờ check-out cho record hôm nay
             userDataObj.attendance_history[todayIndex].check_out_time = data.data.time;
           }
@@ -184,11 +176,10 @@ export default function AttendanceScreen() {
 
         // Hiển thị tên và thông báo
         const userName = data.data?.fullname || "Nhân viên";
-        const actionType = data.data?.type === "Check-in" ? "vào" : "ra";
 
         Alert.alert(
           "Thành công",
-          `Chào ${userName}! Bạn đã chấm công ${actionType} thành công.`,
+          `Chào ${userName}! Bạn đã chấm công ra thành công.`,
           [
             // Mẹo: Dùng router.replace để thay thế hẳn màn hình, không bị xếp chồng trang
             { text: "OK", onPress: () => router.replace("/(tabs)/home") }
@@ -196,7 +187,7 @@ export default function AttendanceScreen() {
         );
       } else {
         console.error("❌ Nhận diện thất bại:", data);
-        Alert.alert("Không khớp", data.message || "Khuôn mặt này không khớp với hệ thống.", [
+        Alert.alert("Không khớp", data.message || "Khuôn mặt này không khớp với hệ thống hoặc bạn chưa chấm công vào.", [
           { text: "Thử lại", onPress: resetAttendance },
           { text: "Hủy", style: "cancel" }
         ]);
@@ -230,7 +221,7 @@ export default function AttendanceScreen() {
         <View style={styles.focusFrame} />
 
         <View style={styles.guideContainer}>
-          <Text style={styles.titleText}>ĐIỂM DANH KHUÔN MẶT</Text>
+          <Text style={styles.titleText}>CHẤM CÔNG RA</Text>
           <Text style={styles.statusText}>{statusMessage}</Text>
         </View>
 

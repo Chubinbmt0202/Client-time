@@ -266,7 +266,7 @@ export default function RootLayout() {
     if (pathname === "/") return;
 
     // 5 phút = 5 * 60 * 1000 = 300000 ms (đang test dùng 5000 ms)
-    inactivityTimerRef.current = setTimeout(performLogout, 300000);
+    inactivityTimerRef.current = setTimeout(performLogout, 600000);
   }, [pathname, performLogout]);
 
   // Khởi tạo và cleanup timer khi vào ra trang

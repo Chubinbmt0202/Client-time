@@ -1,5 +1,4 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
@@ -16,8 +15,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import { styles } from "./index.styles";
 import { API_ENDPOINTS } from "../constants/api";
+import { styles } from "./index.styles";
 
 export default function LoginScreen() {
   const [employeeId, setEmployeeId] = useState("");
@@ -50,13 +49,7 @@ export default function LoginScreen() {
       console.log("Login Response:", loginData);
       if (loginRes.ok) {
         // Save auth data to storage
-        await AsyncStorage.setItem("userToken", loginData.token);
-        await AsyncStorage.setItem("userData", JSON.stringify(loginData.data));
-        // Using string "true"/"false" for boolean
-        await AsyncStorage.setItem(
-          "isFaceUpdated",
-          String(loginData.is_face_updated),
-        );
+
 
         Alert.alert("Thành công", "Đăng nhập thành công!");
         // @ts-ignore
