@@ -42,13 +42,27 @@ export default function HistoryScreen() {
       const userStr = await AsyncStorage.getItem("userData");
       if (!userStr) return;
       const user = JSON.parse(userStr);
-      const userId = user.username;
+      const userId = user.id_nhan_vien || user.id;
 
-      const response = await fetch(API_ENDPOINTS.ATTENDANCE(userId));
+      if (!userId) {
+        setIsLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      const response = await fetch(API_ENDPOINTS.ATTENDANCE_HISTORY(userId));
       if (response.ok) {
         const data = await response.json();
-        const records = Array.isArray(data) ? data : (data.history || [data]);
-        setHistory(records);
+        if (data.success && data.data) {
+          const records = data.data.map((item: any, index: number) => ({
+            id: index.toString(),
+            date: item.log_date,
+            checkIn: item.check_in_time,
+            checkOut: item.check_out_time,
+            status: item.status
+          }));
+          setHistory(records);
+        }
       }
     } catch (error) {
       console.error("Lỗi khi lấy lịch sử chấm công:", error);

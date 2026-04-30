@@ -38,9 +38,9 @@ function CustomDrawerContent(props: any) {
       if (str) {
         const user = JSON.parse(str);
         setProfile({
-          name: user.full_name || "Người dùng",
-          id: user.id || "NV000",
-          role: user.role === "admin" ? "QUẢN TRỊ VIÊN" : "NHÂN VIÊN"
+          name: user.ho_va_ten || "Người dùng",
+          id: user.id_nhan_vien || "NV000",
+          role: user.vai_tro === "admin" ? "QUẢN TRỊ VIÊN" : "NHÂN VIÊN"
         });
       }
     });
@@ -88,35 +88,13 @@ function CustomDrawerContent(props: any) {
       route: "/(tabs)/home",
     },
     {
-      icon: (
-        <MaterialCommunityIcons
-          name="face-recognition"
-          size={24}
-          color="#475569"
-        />
-      ),
-      label: "Chấm công",
-      route: "/face-attendance",
-    },
-    {
-      icon: (
-        <MaterialCommunityIcons
-          name="face-recognition"
-          size={24}
-          color="#475569"
-        />
-      ),
-      label: "Đăng ký khuôn mặt",
-      route: "/face-registration",
-    },
-    {
       icon: <MaterialCommunityIcons name="history" size={24} color="#475569" />,
       label: "Lịch sử chấm công",
       route: "/(tabs)/history",
     },
     {
       icon: <Ionicons name="document-text-outline" size={24} color="#475569" />,
-      label: "Đơn từ",
+      label: "Trạng thái đơn nghỉ phép",
       route: "/(tabs)/leave",
     },
     {

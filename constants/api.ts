@@ -6,7 +6,7 @@ export const API_ENDPOINTS = {
   LOGIN: `${BASE_URL_3}/api/auth/login`,
   UPLOAD_FACE: `${BASE_URL_3}/api/attendance/testRegister`,
   RECOGNIZE: `${BASE_URL_3}/api/attendance/checkAttendance`,
-  ATTENDANCE: (userId: string) => `${BASE_URL_3}/api/attendance/${userId}`,
+  ATTENDANCE_HISTORY: (employeeId: string) => `${BASE_URL_3}/api/attendance/history/${employeeId}`,
   VERIFY_ATTENDANCE: `${BASE_URL_3}/api/attendance/verify`,
   DASHBOARD: (userId: string) => `${BASE_URL_3}/api/employees/dashboard/${userId}`,
 };
