@@ -166,8 +166,7 @@ export default function CheckOutScreen() {
             );
           });
 
-          // API trả về data.data.type là "Check-in" hoặc "Check-out" (mà ta đã viết bên Node.js)
-          if (data.data?.type === "Check-out" && todayIndex !== -1) {
+          if (todayIndex !== -1) {
             // Cập nhật giờ check-out cho record hôm nay
             userDataObj.attendance_history[todayIndex].check_out_time = data.data.time;
           }

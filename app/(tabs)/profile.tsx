@@ -15,9 +15,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 interface UserData {
-  ho_va_ten: string;
-  id_nhan_vien: string;
-  ten_vai_tro: string;
+  ho_va_ten?: string;
+  full_name?: string;
+  id_nhan_vien?: string;
+  id?: string;
+  ten_vai_tro?: string;
+  vai_tro?: string;
+  role?: string;
 }
 
 export default function ProfileScreen() {
@@ -106,14 +110,14 @@ export default function ProfileScreen() {
             </View>
           </View>
           <Text style={styles.userName}>
-            {userData?.ho_va_ten || "Người dùng"}
+            {userData?.ho_va_ten || userData?.full_name || "Người dùng"}
           </Text>
           <Text style={styles.userId}>
-            Mã NV: {userData?.id_nhan_vien || "NV000"}
+            Mã NV: {userData?.id_nhan_vien || userData?.id || "NV000"}
           </Text>
           <View style={styles.roleBadge}>
             <Text style={styles.roleText}>
-              {userData?.ten_vai_tro || "Nhân viên"}
+              {userData?.ten_vai_tro || userData?.role || "Nhân viên"}
             </Text>
           </View>
         </View>
@@ -144,7 +148,7 @@ export default function ProfileScreen() {
               <View style={styles.groupCard}>
                 {group.items.map((item, index) => (
                   <React.Fragment key={index}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.menuRow}
                       onPress={() => item.route && router.push(item.route as any)}
                     >

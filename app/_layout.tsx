@@ -27,6 +27,24 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 function CustomDrawerContent(props: any) {
   const router = useRouter();
   const pathname = usePathname();
+  const [profile, setProfile] = React.useState({
+    name: "Người dùng",
+    id: "NV000",
+    role: "NHÂN VIÊN"
+  });
+
+  React.useEffect(() => {
+    AsyncStorage.getItem("userData").then(str => {
+      if (str) {
+        const user = JSON.parse(str);
+        setProfile({
+          name: user.full_name || "Người dùng",
+          id: user.id || "NV000",
+          role: user.role === "admin" ? "QUẢN TRỊ VIÊN" : "NHÂN VIÊN"
+        });
+      }
+    });
+  }, []);
 
   const handleLogout = async () => {
     Alert.alert("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất?", [
@@ -139,10 +157,10 @@ function CustomDrawerContent(props: any) {
           <View style={styles.onlineDot} />
         </View>
         <View style={styles.profileTextContainer}>
-          <Text style={styles.profileName}>Nguyễn Văn A</Text>
-          <Text style={styles.profileId}>Mã NV: NV001</Text>
+          <Text style={styles.profileName}>{profile.name}</Text>
+          <Text style={styles.profileId}>Mã NV: {profile.id}</Text>
           <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>NHÂN VIÊN CHÍNH THỨC</Text>
+            <Text style={styles.roleBadgeText}>{profile.role}</Text>
           </View>
         </View>
       </View>

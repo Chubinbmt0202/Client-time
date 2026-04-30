@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -14,7 +15,6 @@ import {
   useCameraDevice,
   useCameraPermission,
 } from "react-native-vision-camera";
-import { useIsFocused } from "@react-navigation/native";
 import { API_ENDPOINTS } from "../constants/api";
 
 import { useFaceDetection } from "../hooks/useFaceDetection";
@@ -166,16 +166,13 @@ export default function CheckInScreen() {
             );
           });
 
-          // API trả về data.data.type là "Check-in" hoặc "Check-out" (mà ta đã viết bên Node.js)
-          if (data.data?.type === "Check-in") {
-            // Thêm record mới lên đầu mảng
-            userDataObj.attendance_history.unshift({
-              log_date: data.data.time, // Lấy mốc thời gian này làm ngày log
-              check_in_time: data.data.time,
-              check_out_time: null,
-              status: "present"
-            });
-          }
+          // Thêm record mới lên đầu mảng
+          userDataObj.attendance_history.unshift({
+            log_date: data.data.time, // Lấy mốc thời gian này làm ngày log
+            check_in_time: data.data.time,
+            check_out_time: null,
+            status: "present"
+          });
 
           // Lưu đè lại vào AsyncStorage
           await AsyncStorage.setItem("userData", JSON.stringify(userDataObj));

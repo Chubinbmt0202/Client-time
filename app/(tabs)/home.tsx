@@ -53,10 +53,10 @@ export default function DashboardScreen() {
       if (userStr) {
         const user = JSON.parse(userStr);
         const userProfile = {
-          name: user.full_name || "Người dùng",
-          id: user.id || "NV000",
-          role: user.role === "admin" ? "Quản trị viên" : "Nhân viên",
-          username: user.username || "",
+          name: user.ho_va_ten || "Người dùng",
+          id: user.id_nhan_vien || "NV000",
+          role: user.vai_tro === "admin" ? "Quản trị viên" : "Nhân viên",
+          username: user.ten_dang_nhap || "",
         };
         setProfile(userProfile);
 
@@ -237,19 +237,17 @@ export default function DashboardScreen() {
         }
       >
         {/* Profile Card */}
-        {isFaceUpdated && (
-          <View style={styles.profileCard}>
-            <Image
-              source={{ uri: "https://randomuser.me/api/portraits/men/32.jpg" }}
-              style={styles.avatar}
-            />
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{profile.name}</Text>
-              <Text style={styles.profileRole}>{profile.role}</Text>
-              <Text style={styles.profileId}>Mã NV: {profile.id}</Text>
-            </View>
+        <View style={styles.profileCard}>
+          <Image
+            source={{ uri: "https://randomuser.me/api/portraits/men/32.jpg" }}
+            style={styles.avatar}
+          />
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>{profile.name}</Text>
+            <Text style={styles.profileRole}>{profile.role}</Text>
+            <Text style={styles.profileId}>Mã NV: {profile.id}</Text>
           </View>
-        )}
+        </View>
 
         {/* Date & Time */}
         <View style={styles.timeSection}>
