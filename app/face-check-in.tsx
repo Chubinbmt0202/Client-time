@@ -1,4 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from 'expo-location';
+import { NetworkInfo } from 'react-native-network-info';
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -34,6 +36,13 @@ export default function CheckInScreen() {
   // 🚀 Đếm 1.5 giây sau khi mở màn hình mới cho phép AI bắt đầu canh chụp
   const [statusMessage, setStatusMessage] = useState("Đang khởi động");
   useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Cấp quyền', 'Ứng dụng cần quyền vị trí để ghi nhận wifi và gps.');
+      }
+    })();
+
     const timer = setTimeout(() => {
       setIsReady(true);
       setStatusMessage("Nhìn thẳng để chấm công vào");
@@ -127,6 +136,32 @@ export default function CheckInScreen() {
 
       if (!cloudUrl) throw new Error("Không thể tải ảnh lên hệ thống");
 
+      // 5. Gather Wifi & GPS Evidence
+      setStatusMessage("Đang lấy thông tin vị trí...");
+      let evidence = {
+        wifi_bssid: "",
+        wifi_ssid: "",
+        lat: 0,
+        lng: 0
+      };
+
+      try {
+        const ssid = await NetworkInfo.getSSID();
+        const bssid = await NetworkInfo.getBSSID();
+        evidence.wifi_ssid = ssid || "";
+        evidence.wifi_bssid = bssid || "";
+      } catch (e) {
+        console.log("Không lấy được wifi", e);
+      }
+
+      try {
+        let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        evidence.lat = location.coords.latitude;
+        evidence.lng = location.coords.longitude;
+      } catch (e) {
+        console.log("Không lấy được vị trí", e);
+      }
+
       // 6. Gửi 1 URL lên Backend xác thực
       setStatusMessage("Đang xác thực khuôn mặt...");
       const startBackendTime = Date.now();
@@ -137,7 +172,14 @@ export default function CheckInScreen() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Gửi { userId, url, intent: "check-in" }
-        body: JSON.stringify({ userId: userId, url: cloudUrl, intent: "check-in" }),
+        body: JSON.stringify({ 
+          userId: userId, 
+          url: cloudUrl, 
+          intent: "check-in",
+          action: "check_in",
+          timestamp: new Date().toISOString(),
+          evidence: evidence
+        }),
       });
 
       const data = await response.json();

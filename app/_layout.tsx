@@ -95,7 +95,7 @@ function CustomDrawerContent(props: any) {
     {
       icon: <Ionicons name="document-text-outline" size={24} color="#475569" />,
       label: "Trạng thái đơn nghỉ phép",
-      route: "/(tabs)/leave",
+      route: "/leave-history",
     },
     {
       icon: (
@@ -299,6 +299,7 @@ export default function RootLayout() {
               width: 300, // chỉnh độ rộng drawer
             },
           }}
+          backBehavior="history"
         >
           <Drawer.Screen
             name="index"
