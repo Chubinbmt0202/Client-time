@@ -1,17 +1,19 @@
 const BASE_URL = "http://192.168.2.45:3001";
 const BASE_URL2 = "http://172.20.0.209:3001";
-const BASE_URL_3 = "http://192.168.1.4:3001";
+const BASE_4G = "http://192.168.43.108:3001";
+const BASE_URL_BEEP = "http://172.16.98.254:3001"
+const BASR_URL_THEBOOKS = "http://192.168.1.12:3001"
 
 export const API_ENDPOINTS = {
-  LOGIN: `${BASE_URL_3}/api/auth/login`,
-  UPLOAD_FACE: `${BASE_URL_3}/api/attendance/testRegister`,
-  RECOGNIZE: `${BASE_URL_3}/api/attendance/checkAttendance`,
-  ATTENDANCE_HISTORY: (employeeId: string) => `${BASE_URL_3}/api/attendance/history/${employeeId}`,
-  VERIFY_ATTENDANCE: `${BASE_URL_3}/api/attendance/verify`,
-  DASHBOARD: (userId: string) => `${BASE_URL_3}/api/employees/dashboard/${userId}`,
+  LOGIN: `${BASR_URL_THEBOOKS}/api/auth/login`,
+  UPLOAD_FACE: `${BASR_URL_THEBOOKS}/api/attendance/testRegister`,
+  RECOGNIZE: `${BASR_URL_THEBOOKS}/api/attendance/checkAttendance`,
+  ATTENDANCE_HISTORY: (employeeId: string) => `${BASR_URL_THEBOOKS}/api/attendance/history/${employeeId}`,
+  VERIFY_ATTENDANCE: `${BASR_URL_THEBOOKS}/api/attendance/verify`,
+  DASHBOARD: (userId: string) => `${BASR_URL_THEBOOKS}/api/employees/dashboard/${userId}`,
 };
 
 export default {
-  BASE_URL_3,
+  BASR_URL_THEBOOKS,
   ...API_ENDPOINTS,
 };

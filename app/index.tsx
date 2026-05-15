@@ -1,4 +1,6 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Location from 'expo-location';
+import { NetworkInfo } from 'react-native-network-info';
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
@@ -35,6 +37,19 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
+      // Lấy thông tin WiFi BSSID
+      let wifi_bssid = "";
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const bssid = await NetworkInfo.getBSSID();
+          wifi_bssid = bssid || "";
+          console.log(`\n[LOGIN ATTEMPT - MOBILE] BSSID: ${wifi_bssid}`);
+        }
+      } catch (e) {
+        console.error("Lỗi lấy thông tin WiFi:", e);
+      }
+
       // Note: If running on Android Emulator, you might need to change 'localhost' to '10.0.2.2'
       const loginRes = await fetch(API_ENDPOINTS.LOGIN, {
         method: "POST",
@@ -42,6 +57,7 @@ export default function LoginScreen() {
         body: JSON.stringify({
           username: employeeId,
           password: password,
+          wifi_bssid: wifi_bssid,
         }),
       });
 

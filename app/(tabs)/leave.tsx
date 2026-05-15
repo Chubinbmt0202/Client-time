@@ -1,8 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { DrawerActions } from "@react-navigation/native";
+import * as DocumentPicker from "expo-document-picker";
 import { useNavigation, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -26,20 +29,72 @@ export default function LeaveScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const [selectedType, setSelectedType] = useState(LEAVE_TYPES[0].id);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [fromDate, setFromDate] = useState(new Date());
+  const [toDate, setToDate] = useState(new Date());
+  const [showFromPicker, setShowFromPicker] = useState(false);
+  const [showToPicker, setShowToPicker] = useState(false);
   const [reason, setReason] = useState("");
+  const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+
+  const onFromDateChange = (event: any, selectedDate?: Date) => {
+    setShowFromPicker(Platform.OS === "ios");
+    if (selectedDate) {
+      setFromDate(selectedDate);
+    }
+  };
+
+  const onToDateChange = (event: any, selectedDate?: Date) => {
+    setShowToPicker(Platform.OS === "ios");
+    if (selectedDate) {
+      setToDate(selectedDate);
+    }
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled) {
+        setSelectedFile(result.assets[0]);
+      }
+    } catch (err) {
+      Alert.alert("Lỗi", "Không thể chọn tài liệu");
+    }
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("vi-VN");
+  };
 
   const handleSubmit = () => {
-    // Điều hướng tới trang thành công, truyền theo tham số
+    const leaveData = {
+      leaveType: LEAVE_TYPES.find((t) => t.id === selectedType)?.label,
+      fromDate: formatDate(fromDate),
+      toDate: formatDate(toDate),
+      totalDays: "Tạm tính",
+      reason: reason || "Không có lý do",
+      file: selectedFile ? {
+        name: selectedFile.name,
+        size: selectedFile.size,
+        uri: selectedFile.uri,
+        mimeType: selectedFile.mimeType
+      } : null,
+    };
+
+    console.log("=== Dữ liệu đơn xin nghỉ phép ===");
+    console.log(JSON.stringify(leaveData, null, 2));
+
+    // Điều hướng tới trang thành công
     router.push({
       pathname: "/leave-success",
       params: {
-        leaveType: LEAVE_TYPES.find((t) => t.id === selectedType)?.label,
-        fromDate: fromDate || "Hôm nay",
-        toDate: toDate || "Hôm nay",
-        totalDays: "Tạm tính", // Có thể tính toán số ngày thực tế
-        reason: reason || "Không có lý do",
+        ...leaveData,
+        fileName: selectedFile?.name || "",
+        // Chuyển object file thành string nếu cần vì params router thường nhận string
+        file: selectedFile ? JSON.stringify(selectedFile) : "",
       },
     });
   };
@@ -106,34 +161,46 @@ export default function LeaveScreen() {
               <View style={styles.dateRow}>
                 <View style={styles.dateInputContainer}>
                   <Text style={styles.inputLabel}>Từ ngày</Text>
-                  <View style={styles.inputBox}>
-                    <Ionicons name="calendar-outline" size={20} color="#94A3B8" />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="DD/MM/YYYY"
-                      placeholderTextColor="#CBD5E1"
+                  <TouchableOpacity
+                    style={styles.inputBox}
+                    onPress={() => setShowFromPicker(true)}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color="#1C75FF" />
+                    <Text style={styles.dateDisplay}>
+                      {formatDate(fromDate)}
+                    </Text>
+                  </TouchableOpacity>
+                  {showFromPicker && (
+                    <DateTimePicker
                       value={fromDate}
-                      onChangeText={setFromDate}
-                      keyboardType="numeric"
+                      mode="date"
+                      display="default"
+                      onChange={onFromDateChange}
                     />
-                  </View>
+                  )}
                 </View>
 
                 <View style={{ width: 16 }} />
 
                 <View style={styles.dateInputContainer}>
                   <Text style={styles.inputLabel}>Đến ngày</Text>
-                  <View style={styles.inputBox}>
-                    <Ionicons name="calendar-outline" size={20} color="#94A3B8" />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="DD/MM/YYYY"
-                      placeholderTextColor="#CBD5E1"
+                  <TouchableOpacity
+                    style={styles.inputBox}
+                    onPress={() => setShowToPicker(true)}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color="#1C75FF" />
+                    <Text style={styles.dateDisplay}>
+                      {formatDate(toDate)}
+                    </Text>
+                  </TouchableOpacity>
+                  {showToPicker && (
+                    <DateTimePicker
                       value={toDate}
-                      onChangeText={setToDate}
-                      keyboardType="numeric"
+                      mode="date"
+                      display="default"
+                      onChange={onToDateChange}
                     />
-                  </View>
+                  )}
                 </View>
               </View>
 
@@ -152,18 +219,34 @@ export default function LeaveScreen() {
                 />
               </View>
 
-              {/* Người duyệt */}
-              <Text style={styles.sectionTitle}>Người phê duyệt</Text>
-              <View style={styles.approverContainer}>
-                <View style={styles.approverAvatar}>
-                  <Text style={styles.approverInitials}>QL</Text>
-                </View>
-                <View style={styles.approverInfo}>
-                  <Text style={styles.approverName}>Nguyễn Thị Trưởng Phòng</Text>
-                  <Text style={styles.approverRole}>Quản lý trực tiếp</Text>
-                </View>
-                <Ionicons name="checkmark-circle" size={24} color="#22C55E" />
-              </View>
+              {/* Đính kèm file */}
+              <Text style={styles.sectionTitle}>Tệp đính kèm</Text>
+              <TouchableOpacity
+                style={styles.attachmentContainer}
+                onPress={pickDocument}
+              >
+                {selectedFile ? (
+                  <View style={styles.fileInfo}>
+                    <MaterialCommunityIcons name="file-document" size={24} color="#1C75FF" />
+                    <View style={styles.fileDetails}>
+                      <Text style={styles.fileName} numberOfLines={1}>
+                        {selectedFile.name}
+                      </Text>
+                      <Text style={styles.fileSize}>
+                        {(selectedFile.size ? selectedFile.size / 1024 : 0).toFixed(1)} KB
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setSelectedFile(null)}>
+                      <Ionicons name="close-circle" size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.uploadPlaceholder}>
+                    <Ionicons name="cloud-upload-outline" size={24} color="#64748B" />
+                    <Text style={styles.uploadText}>Nhấn để đính kèm minh chứng (Ảnh, PDF...)</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </ScrollView>
 
             {/* Submit Button */}
@@ -299,6 +382,49 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 15,
     color: "#0F172A",
+  },
+  dateDisplay: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 15,
+    color: "#0F172A",
+  },
+  attachmentContainer: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    borderStyle: "dashed",
+    padding: 16,
+    marginBottom: 24,
+  },
+  uploadPlaceholder: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadText: {
+    marginLeft: 8,
+    color: "#64748B",
+    fontSize: 14,
+  },
+  fileInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  fileDetails: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  fileName: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#0F172A",
+  },
+  fileSize: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
   },
   approverContainer: {
     flexDirection: "row",

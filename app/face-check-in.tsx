@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Location from 'expo-location';
-import { NetworkInfo } from 'react-native-network-info';
 import { useIsFocused } from "@react-navigation/native";
+import * as Location from 'expo-location';
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -12,6 +11,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { NetworkInfo } from 'react-native-network-info';
 import {
   Camera,
   useCameraDevice,
@@ -39,7 +39,7 @@ export default function CheckInScreen() {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Cấp quyền', 'Ứng dụng cần quyền vị trí để ghi nhận wifi và gps.');
+        Alert.alert('Cấp quyền', 'Ứng dụng cần quyền vị trí để ghi nhận vị trí của bạn.');
       }
     })();
 
@@ -172,9 +172,9 @@ export default function CheckInScreen() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Gửi { userId, url, intent: "check-in" }
-        body: JSON.stringify({ 
-          userId: userId, 
-          url: cloudUrl, 
+        body: JSON.stringify({
+          userId: userId,
+          url: cloudUrl,
           intent: "check-in",
           action: "check_in",
           timestamp: new Date().toISOString(),
