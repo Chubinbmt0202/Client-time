@@ -5,6 +5,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { useNavigation, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Keyboard,
   KeyboardAvoidingView,
@@ -18,6 +19,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_ENDPOINTS } from "../../constants/api";
+import { uploadImageToCloudinary } from "../../constants/cloudinary";
 
 const LEAVE_TYPES = [
   { id: "annual", label: "Phép năm", icon: "calendar-check" },
@@ -35,6 +40,7 @@ export default function LeaveScreen() {
   const [showToPicker, setShowToPicker] = useState(false);
   const [reason, setReason] = useState("");
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const onFromDateChange = (event: any, selectedDate?: Date) => {
     setShowFromPicker(Platform.OS === "ios");
@@ -69,34 +75,83 @@ export default function LeaveScreen() {
     return date.toLocaleDateString("vi-VN");
   };
 
-  const handleSubmit = () => {
-    const leaveData = {
-      leaveType: LEAVE_TYPES.find((t) => t.id === selectedType)?.label,
-      fromDate: formatDate(fromDate),
-      toDate: formatDate(toDate),
-      totalDays: "Tạm tính",
-      reason: reason || "Không có lý do",
-      file: selectedFile ? {
-        name: selectedFile.name,
-        size: selectedFile.size,
-        uri: selectedFile.uri,
-        mimeType: selectedFile.mimeType
-      } : null,
-    };
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      
+      const userDataStr = await AsyncStorage.getItem("userData");
+      if (!userDataStr) {
+        Alert.alert("Lỗi", "Vui lòng đăng nhập lại");
+        return;
+      }
+      const userData = JSON.parse(userDataStr);
+      const employeeId = userData.id_nhan_vien || "NV897728";
 
-    console.log("=== Dữ liệu đơn xin nghỉ phép ===");
-    console.log(JSON.stringify(leaveData, null, 2));
+      let cloudinaryUrl = null;
 
-    // Điều hướng tới trang thành công
-    router.push({
-      pathname: "/leave-success",
-      params: {
-        ...leaveData,
-        fileName: selectedFile?.name || "",
-        // Chuyển object file thành string nếu cần vì params router thường nhận string
-        file: selectedFile ? JSON.stringify(selectedFile) : "",
-      },
-    });
+      // 1. Nếu có file đính kèm, upload lên Cloudinary trước
+      if (selectedFile) {
+        console.log("📤 [Upload] Bắt đầu upload minh chứng lên Cloudinary...");
+        cloudinaryUrl = await uploadImageToCloudinary(selectedFile.uri, employeeId);
+        
+        if (!cloudinaryUrl) {
+          Alert.alert("Lỗi", "Không thể upload minh chứng. Vui lòng thử lại.");
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 2. Chuẩn bị dữ liệu gửi về Backend
+      const leaveData = {
+        id_nhan_vien: employeeId,
+        leaveType: LEAVE_TYPES.find((t) => t.id === selectedType)?.label,
+        fromDate: formatDate(fromDate),
+        toDate: formatDate(toDate),
+        totalDays: "Tạm tính",
+        reason: reason || "Không có lý do",
+        url_minh_chung: cloudinaryUrl, // Gửi link Cloudinary về backend
+        file: selectedFile ? {
+          name: selectedFile.name,
+          size: selectedFile.size,
+          uri: selectedFile.uri,
+          mimeType: selectedFile.mimeType
+        } : null,
+      };
+
+      console.log("=== Đang gửi đơn xin nghỉ phép ===");
+      console.log(JSON.stringify(leaveData, null, 2));
+
+      // 3. Gọi API Backend để lưu đơn
+      const response = await fetch(API_ENDPOINTS.CREATE_LEAVE, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(leaveData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Điều hướng tới trang thành công
+        router.push({
+          pathname: "/leave-success",
+          params: {
+            ...leaveData,
+            fileName: selectedFile?.name || "",
+            file: selectedFile ? JSON.stringify(selectedFile) : "",
+            cloudinaryUrl: cloudinaryUrl || "", // Truyền URL sang trang thành công nếu cần
+          },
+        });
+      } else {
+        Alert.alert("Lỗi", result.message || "Không thể tạo đơn xin nghỉ phép");
+      }
+    } catch (error) {
+      console.error("Lỗi khi gửi đơn:", error);
+      Alert.alert("Lỗi", "Đã có lỗi xảy ra. Vui lòng thử lại sau.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -252,12 +307,19 @@ export default function LeaveScreen() {
             {/* Submit Button */}
             <View style={styles.footer}>
               <TouchableOpacity
-                style={styles.submitButton}
+                style={[styles.submitButton, loading && { opacity: 0.7 }]}
                 onPress={handleSubmit}
                 activeOpacity={0.8}
+                disabled={loading}
               >
-                <Text style={styles.submitButtonText}>Gửi đơn xin phép</Text>
-                <Ionicons name="send" size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                <Text style={styles.submitButtonText}>
+                  {loading ? "Đang gửi đơn..." : "Gửi đơn xin phép"}
+                </Text>
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" style={{ marginLeft: 8 }} />
+                ) : (
+                  <Ionicons name="send" size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                )}
               </TouchableOpacity>
             </View>
           </View>

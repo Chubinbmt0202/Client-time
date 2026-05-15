@@ -11,6 +11,8 @@ export const API_ENDPOINTS = {
   ATTENDANCE_HISTORY: (employeeId: string) => `${BASR_URL_THEBOOKS}/api/attendance/history/${employeeId}`,
   VERIFY_ATTENDANCE: `${BASR_URL_THEBOOKS}/api/attendance/verify`,
   DASHBOARD: (userId: string) => `${BASR_URL_THEBOOKS}/api/employees/dashboard/${userId}`,
+  LEAVE_HISTORY: (employeeId: string) => `${BASR_URL_THEBOOKS}/api/leave/history/${employeeId}`,
+  CREATE_LEAVE: `${BASR_URL_THEBOOKS}/api/leave/create`,
 };
 
 export default {

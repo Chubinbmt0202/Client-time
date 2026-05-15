@@ -1,8 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,37 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-// Dữ liệu mẫu (Mock data)
-const MOCK_LEAVE_REQUESTS = [
-  {
-    id: "1",
-    type: "annual",
-    title: "Nghỉ phép năm",
-    createdAt: "12/10/2023",
-    dateRange: "15/10 - 17/10",
-    days: "3 ngày",
-    status: "pending",
-  },
-  {
-    id: "2",
-    type: "sick",
-    title: "Nghỉ ốm",
-    createdAt: "05/09/2023",
-    dateRange: "06/09 - 06/09",
-    days: "1 ngày",
-    status: "approved",
-  },
-  {
-    id: "3",
-    type: "personal",
-    title: "Nghỉ việc riêng",
-    createdAt: "20/08/2023",
-    dateRange: "25/08 - 26/08",
-    days: "2 ngày",
-    status: "rejected",
-  },
-];
+import { API_ENDPOINTS } from "../constants/api";
 
 const FILTERS = [
   { id: "all", label: "Tất cả" },
@@ -52,52 +25,96 @@ const FILTERS = [
 export default function LeaveHistoryScreen() {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState("all");
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filteredData = MOCK_LEAVE_REQUESTS.filter((item) => {
+  const fetchLeaveHistory = async () => {
+    try {
+      const userDataStr = await AsyncStorage.getItem("userData");
+      if (!userDataStr) return;
+
+      const userData = JSON.parse(userDataStr);
+      const employeeId = userData.id_nhan_vien || "NV897728";
+
+      const response = await fetch(API_ENDPOINTS.LEAVE_HISTORY(employeeId));
+      const result = await response.json();
+
+      console.log(`=== Tải dữ liệu cho NV: ${employeeId} ===`);
+      console.log(JSON.stringify(result, null, 4));
+
+      if (result.success) {
+        setLeaveRequests(result.data);
+      }
+    } catch (error) {
+      console.error("Lỗi khi lấy lịch sử nghỉ phép:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      fetchLeaveHistory();
+    }, [])
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchLeaveHistory();
+  }, []);
+
+  const filteredData = leaveRequests.filter((item) => {
     if (activeFilter === "all") return true;
-    return item.status === activeFilter;
+    const statusMap: any = {
+      pending: null,
+      approved: true,
+      rejected: false,
+    };
+    return item.trang_thai === statusMap[activeFilter];
   });
 
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case "pending":
-        return { label: "ĐANG CHỜ", bg: "#F1F5F9", color: "#475569" };
-      case "approved":
-        return { label: "ĐÃ DUYỆT", bg: "#16A34A", color: "#FFFFFF" };
-      case "rejected":
-        return { label: "TỪ CHỐI", bg: "#FCA5A5", color: "#991B1B" };
-      default:
-        return { label: "KHÔNG RÕ", bg: "#F1F5F9", color: "#475569" };
-    }
+  const getStatusConfig = (status: boolean | null) => {
+    if (status === null)
+      return { label: "ĐANG CHỜ", bg: "#F1F5F9", color: "#475569" };
+    if (status === true)
+      return { label: "ĐÃ DUYỆT", bg: "#22C55E", color: "#FFFFFF" };
+    if (status === false)
+      return { label: "TỪ CHỐI", bg: "#EF4444", color: "#FFFFFF" };
+    return { label: "KHÔNG RÕ", bg: "#F1F5F9", color: "#475569" };
   };
 
-  const getTypeConfig = (type: string) => {
-    switch (type) {
-      case "annual":
-        return { icon: "umbrella", bg: "#DBEAFE", color: "#2563EB" };
-      case "sick":
-        return { icon: "medical-bag", bg: "#16A34A", color: "#FFFFFF" };
-      case "personal":
-        return { icon: "calendar-remove", bg: "#FEE2E2", color: "#991B1B" };
-      default:
-        return { icon: "calendar", bg: "#F1F5F9", color: "#475569" };
-    }
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
   };
 
-  const renderItem = ({ item }: { item: typeof MOCK_LEAVE_REQUESTS[0] }) => {
-    const statusConfig = getStatusConfig(item.status);
-    const typeConfig = getTypeConfig(item.type);
+  const calculateDays = (start: string, end: string) => {
+    const s = new Date(start);
+    const e = new Date(end);
+    const diff = Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    return `${diff} ngày`;
+  };
+
+  const renderItem = ({ item }: { item: any }) => {
+    const statusConfig = getStatusConfig(item.trang_thai);
+    const icon = item.id_loai_phep === "LP001" ? "umbrella" : item.id_loai_phep === "LP002" ? "medical-bag" : "calendar-remove";
+    const iconBg = item.id_loai_phep === "LP001" ? "#DBEAFE" : item.id_loai_phep === "LP002" ? "#D1FAE5" : "#FEE2E2";
+    const iconColor = item.id_loai_phep === "LP001" ? "#2563EB" : item.id_loai_phep === "LP002" ? "#059669" : "#991B1B";
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={styles.headerLeft}>
-            <View style={[styles.iconBox, { backgroundColor: typeConfig.bg }]}>
-              <MaterialCommunityIcons name={typeConfig.icon as any} size={24} color={typeConfig.color} />
+            <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
+              <MaterialCommunityIcons name={icon as any} size={24} color={iconColor} />
             </View>
             <View style={styles.titleBox}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardSubtitle}>Tạo ngày {item.createdAt}</Text>
+              <Text style={styles.cardTitle}>{item.ten_phep}</Text>
+              <Text style={styles.cardSubtitle}>Tạo ngày {formatDate(item.ngay_tao)}</Text>
             </View>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
@@ -110,13 +127,23 @@ export default function LeaveHistoryScreen() {
         <View style={styles.cardBody}>
           <View style={styles.infoBlock}>
             <Text style={styles.infoLabel}>Thời gian</Text>
-            <Text style={styles.infoValue}>{item.dateRange}</Text>
+            <Text style={styles.infoValue}>
+              {formatDate(item.ngay_bat_dau)} - {formatDate(item.ngay_ket_thuc)}
+            </Text>
           </View>
           <View style={styles.infoBlock}>
             <Text style={styles.infoLabel}>Số ngày</Text>
-            <Text style={styles.infoValue}>{item.days}</Text>
+            <Text style={styles.infoValue}>{calculateDays(item.ngay_bat_dau, item.ngay_ket_thuc)}</Text>
           </View>
         </View>
+        {item.ghi_chu && (
+          <View style={{ marginTop: 12 }}>
+            <Text style={[styles.infoLabel, { marginBottom: 2 }]}>Ghi chú:</Text>
+            <Text style={[styles.infoValue, { fontSize: 13, color: "#64748B", fontStyle: "italic" }]}>
+              "{item.ghi_chu}"
+            </Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -153,13 +180,29 @@ export default function LeaveHistoryScreen() {
       </View>
 
       {/* List */}
-      <FlatList
-        data={filteredData}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+      {loading && !refreshing ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color="#1C75FF" />
+          <Text style={{ marginTop: 12, color: "#64748B" }}>Đang tải danh sách...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredData}
+          keyExtractor={(item) => item.id_don_xin_nghi}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#1C75FF"]} />
+          }
+          ListEmptyComponent={
+            <View style={{ alignItems: "center", marginTop: 100 }}>
+              <MaterialCommunityIcons name="calendar-blank" size={64} color="#CBD5E1" />
+              <Text style={{ marginTop: 16, color: "#64748B", fontSize: 16 }}>Không có đơn nghỉ phép nào</Text>
+            </View>
+          }
+        />
+      )}
 
       {/* Floating Action Button */}
       <TouchableOpacity
