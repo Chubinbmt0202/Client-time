@@ -14,6 +14,10 @@ export const API_ENDPOINTS = {
   DASHBOARD: (userId: string) => `${BASE_URL_IP_100}/api/employees/dashboard/${userId}`,
   LEAVE_HISTORY: (employeeId: string) => `${BASE_URL_IP_100}/api/leave/history/${employeeId}`,
   CREATE_LEAVE: `${BASE_URL_IP_100}/api/leave/create`,
+  NOTIFICATIONS: (employeeId: string) => `${BASE_URL_IP_100}/api/notifications/employee/${employeeId}`,
+  MARK_NOTIFICATION_READ: (id: string) => `${BASE_URL_IP_100}/api/notifications/mark-read/${id}`,
+  MARK_ALL_NOTIFICATIONS_READ: `${BASE_URL_IP_100}/api/notifications/mark-all-read`,
+  DELETE_NOTIFICATION: (id: string) => `${BASE_URL_IP_100}/api/notifications/delete/${id}`,
 };
 
 export default {

@@ -7,6 +7,7 @@ import {
 } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { onValue, ref } from "firebase/database";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -19,7 +20,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ref, onValue } from "firebase/database";
 import { database } from "../../utils/firebase";
 
 const SHIFT_START_HOURS = 8;
@@ -44,6 +44,7 @@ export default function DashboardScreen() {
   }>({ checkIn: null, checkOut: null });
 
   const [refreshing, setRefreshing] = useState(false);
+  const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
   const navigation = useNavigation();
   const router = useRouter();
 
@@ -135,7 +136,7 @@ export default function DashboardScreen() {
     const unsubscribe = onValue(faceUpdateRef, async (snapshot) => {
       const data = snapshot.val();
       console.log("Firebase Realtime Database data nhận được:", data);
-      
+
       if (data && data.request_update === true) {
         Alert.alert(
           "Yêu cầu cập nhật khuôn mặt",
@@ -157,6 +158,20 @@ export default function DashboardScreen() {
                 // 2. Chuyển hướng sang màn hình đăng ký khuôn mặt
                 router.push("/face-registration");
               }
+            },
+            {
+              text: "Bỏ qua",
+              onPress: async () => {
+                // 1. Cập nhật local state & AsyncStorage để chuyển đổi UI về trạng thái chưa đăng ký
+                setIsFaceUpdated(false);
+                await AsyncStorage.setItem("isFaceUpdated", "false");
+                const userStr = await AsyncStorage.getItem("userData");
+                if (userStr) {
+                  const user = JSON.parse(userStr);
+                  user.is_face_updated = false;
+                  await AsyncStorage.setItem("userData", JSON.stringify(user));
+                }
+              }
             }
           ],
           { cancelable: false }
@@ -168,6 +183,29 @@ export default function DashboardScreen() {
       console.log(`📴 Đã huỷ lắng nghe Firebase cho: ${profile.id}`);
       unsubscribe();
     };
+  }, [profile.id]);
+
+  // 🔥 Lắng nghe thông báo realtime từ Firebase để cập nhật chuông và danh sách thông báo trên trang chủ
+  useEffect(() => {
+    if (!profile.id || profile.id === "NV000") return;
+
+    const notiRef = ref(database, `notifications/${profile.id}`);
+    const unsubscribe = onValue(notiRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const list = Object.keys(data).map((key) => ({
+          ...data[key],
+          id_thong_bao: key,
+        }));
+        // Sắp xếp ngày tạo giảm dần
+        list.sort((a, b) => new Date(b.ngay_tao).getTime() - new Date(a.ngay_tao).getTime());
+        setRecentNotifications(list);
+      } else {
+        setRecentNotifications([]);
+      }
+    });
+
+    return () => unsubscribe();
   }, [profile.id]);
 
   const handleOpenDrawer = () => {
@@ -250,10 +288,12 @@ export default function DashboardScreen() {
           <Feather name="menu" size={24} color="#0F172A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Trang chủ</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/notifications")}>
           <View>
             <Feather name="bell" size={24} color="#0F172A" />
-            <View style={styles.notificationDot} />
+            {recentNotifications.some(n => !n.da_doc) && (
+              <View style={styles.notificationDot} />
+            )}
           </View>
         </TouchableOpacity>
       </View>
@@ -514,55 +554,76 @@ export default function DashboardScreen() {
             {/* Notifications */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Thông báo gần đây</Text>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push("/notifications")}>
                 <Text style={styles.linkText}>Xem tất cả</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.notificationList}>
-              {/* Item 1 */}
-              <View style={styles.notificationItem}>
-                <View
-                  style={[
-                    styles.notificationIconWrapper,
-                    { backgroundColor: "#EEF4FE" },
-                  ]}
-                >
-                  <Ionicons name="megaphone" size={20} color="#1C75FF" />
+              {recentNotifications.length === 0 ? (
+                <View style={styles.emptyRecentNoti}>
+                  <Text style={styles.emptyRecentNotiText}>Không có thông báo mới nào</Text>
                 </View>
-                <View style={styles.notificationContent}>
-                  <Text style={styles.notificationTitle}>
-                    Họp toàn công ty quý 3
-                  </Text>
-                  <Text style={styles.notificationDesc}>
-                    Lịch họp định kỳ quý 3 sẽ diễn ra vào lúc 14:00 ngày mai tại
-                    phòng họp lớn.
-                  </Text>
-                  <Text style={styles.notificationTime}>2 giờ trước</Text>
-                </View>
-              </View>
+              ) : (
+                recentNotifications.slice(0, 2).map((item) => {
+                  let icon = <Feather name="bell" size={20} color="#64748B" />;
+                  let bgColor = "#F1F5F9";
+                  
+                  if (item.loai_thong_bao === "FACE_UPDATE") {
+                    icon = <MaterialCommunityIcons name="face-recognition" size={22} color="#1C75FF" />;
+                    bgColor = "#EEF4FE";
+                  } else if (item.loai_thong_bao === "LEAVE") {
+                    icon = <Ionicons name="document-text-outline" size={20} color="#10B981" />;
+                    bgColor = "#E6FBF3";
+                  } else if (item.loai_thong_bao === "ATTENDANCE") {
+                    icon = <Ionicons name="checkmark-circle-outline" size={20} color="#F59E0B" />;
+                    bgColor = "#FEF7E6";
+                  }
 
-              {/* Item 2 */}
-              <View style={styles.notificationItem}>
-                <View
-                  style={[
-                    styles.notificationIconWrapper,
-                    { backgroundColor: "#DCFCE7" },
-                  ]}
-                >
-                  <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
-                </View>
-                <View style={styles.notificationContent}>
-                  <Text style={styles.notificationTitle}>
-                    Duyệt đơn nghỉ phép
-                  </Text>
-                  <Text style={styles.notificationDesc}>
-                    Đơn xin nghỉ phép ngày 20/10 của bạn đã được quản lý phê
-                    duyệt.
-                  </Text>
-                  <Text style={styles.notificationTime}>Hôm qua</Text>
-                </View>
-              </View>
+                  // Format relative time simple version
+                  const formatRelativeTime = (timeInput: any) => {
+                    try {
+                      const date = new Date(timeInput);
+                      const now = new Date();
+                      const diffMins = Math.floor((now.getTime() - date.getTime()) / 60000);
+                      const diffHours = Math.floor(diffMins / 60);
+                      const diffDays = Math.floor(diffHours / 24);
+
+                      if (diffMins < 1) return "Vừa xong";
+                      if (diffMins < 60) return `${diffMins} phút trước`;
+                      if (diffHours < 24) return `${diffHours} giờ trước`;
+                      return `${diffDays} ngày trước`;
+                    } catch (e) {
+                      return "";
+                    }
+                  };
+
+                  return (
+                    <TouchableOpacity
+                      key={item.id_thong_bao}
+                      style={[styles.notificationItem, !item.da_doc && styles.notificationItemUnread]}
+                      onPress={() => router.push("/notifications")}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.notificationIconWrapper, { backgroundColor: bgColor }]}>
+                        {icon}
+                      </View>
+                      <View style={styles.notificationContent}>
+                        <View style={styles.notiHeaderRow}>
+                          <Text style={[styles.notificationTitle, !item.da_doc && styles.notificationTitleUnread]} numberOfLines={1}>
+                            {item.tieu_de}
+                          </Text>
+                          <Text style={styles.notificationTime}>{formatRelativeTime(item.ngay_tao)}</Text>
+                        </View>
+                        <Text style={styles.notificationDesc} numberOfLines={2}>
+                          {item.noi_dung}
+                        </Text>
+                      </View>
+                      {!item.da_doc && <View style={styles.notiUnreadDot} />}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </View>
           </>
         )}
@@ -839,6 +900,41 @@ const styles = StyleSheet.create({
   },
   notificationTime: {
     fontSize: 12,
+    color: "#94A3B8",
+  },
+  notificationItemUnread: {
+    borderColor: "#BFDBFE",
+    backgroundColor: "#F8FAFF",
+  },
+  notificationTitleUnread: {
+    fontWeight: "700",
+  },
+  notiHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  notiUnreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#1C75FF",
+    alignSelf: "center",
+    marginLeft: 8,
+  },
+  emptyRecentNoti: {
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderStyle: "dashed",
+  },
+  emptyRecentNotiText: {
+    fontSize: 13,
     color: "#94A3B8",
   },
   warningBanner: {

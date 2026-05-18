@@ -23,6 +23,8 @@ import {
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { ref, onValue } from "firebase/database";
+import { database } from "../utils/firebase";
 
 function CustomDrawerContent(props: any) {
   const router = useRouter();
@@ -32,6 +34,7 @@ function CustomDrawerContent(props: any) {
     id: "NV000",
     role: "NHÂN VIÊN"
   });
+  const [unreadCount, setUnreadCount] = React.useState(0);
 
   React.useEffect(() => {
     AsyncStorage.getItem("userData").then(str => {
@@ -45,6 +48,24 @@ function CustomDrawerContent(props: any) {
       }
     });
   }, []);
+
+  // Lắng nghe số lượng thông báo chưa đọc realtime từ Firebase
+  React.useEffect(() => {
+    if (!profile.id || profile.id === "NV000") return;
+
+    const notiRef = ref(database, `notifications/${profile.id}`);
+    const unsubscribe = onValue(notiRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const count = Object.values(data).filter((n: any) => !n.da_doc).length;
+        setUnreadCount(count);
+      } else {
+        setUnreadCount(0);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [profile.id]);
 
   const handleLogout = async () => {
     Alert.alert("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất?", [
@@ -110,11 +131,11 @@ function CustomDrawerContent(props: any) {
     },
     {
       icon: (
-        <MaterialIcons name="notifications-none" size={24} color="#475569" />
+        <MaterialIcons name="notifications-none" size={24} color={pathname === "/notifications" ? "#1C75FF" : "#475569"} />
       ),
       label: "Thông báo",
-      route: "",
-      badge: 3,
+      route: "/notifications",
+      badge: unreadCount > 0 ? unreadCount : undefined,
     },
     {
       icon: <MaterialIcons name="person-outline" size={24} color="#475569" />,
@@ -331,6 +352,10 @@ export default function RootLayout() {
           />
           <Drawer.Screen
             name="leave-history"
+            options={{ headerShown: false, swipeEnabled: false }}
+          />
+          <Drawer.Screen
+            name="notifications"
             options={{ headerShown: false, swipeEnabled: false }}
           />
         </Drawer>
