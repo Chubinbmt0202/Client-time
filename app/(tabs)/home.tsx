@@ -9,6 +9,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  Alert,
   Image,
   RefreshControl,
   ScrollView,
@@ -18,6 +19,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ref, onValue } from "firebase/database";
+import { database } from "../../utils/firebase";
 
 const SHIFT_START_HOURS = 8;
 const SHIFT_START_MINUTES = 0;
@@ -121,6 +124,51 @@ export default function DashboardScreen() {
 
     return () => clearInterval(timer);
   }, []);
+
+  // 🔥 Lắng nghe yêu cầu cập nhật khuôn mặt từ Admin qua Firebase Realtime Database
+  useEffect(() => {
+    if (!profile.id || profile.id === "NV000") return;
+
+    console.log(`📡 Đang lắng nghe yêu cầu cập nhật khuôn mặt cho: ${profile.id}`);
+    const faceUpdateRef = ref(database, `face_updates/${profile.id}`);
+
+    const unsubscribe = onValue(faceUpdateRef, async (snapshot) => {
+      const data = snapshot.val();
+      console.log("Firebase Realtime Database data nhận được:", data);
+      
+      if (data && data.request_update === true) {
+        Alert.alert(
+          "Yêu cầu cập nhật khuôn mặt",
+          "Quản trị viên yêu cầu bạn cập nhật lại khuôn mặt mẫu. Vui lòng thực hiện chụp ảnh khuôn mặt mới.",
+          [
+            {
+              text: "Cập nhật ngay",
+              onPress: async () => {
+                // 1. Cập nhật local state & AsyncStorage để chuyển đổi UI về trạng thái chưa đăng ký
+                setIsFaceUpdated(false);
+                await AsyncStorage.setItem("isFaceUpdated", "false");
+                const userStr = await AsyncStorage.getItem("userData");
+                if (userStr) {
+                  const user = JSON.parse(userStr);
+                  user.is_face_updated = false;
+                  await AsyncStorage.setItem("userData", JSON.stringify(user));
+                }
+
+                // 2. Chuyển hướng sang màn hình đăng ký khuôn mặt
+                router.push("/face-registration");
+              }
+            }
+          ],
+          { cancelable: false }
+        );
+      }
+    });
+
+    return () => {
+      console.log(`📴 Đã huỷ lắng nghe Firebase cho: ${profile.id}`);
+      unsubscribe();
+    };
+  }, [profile.id]);
 
   const handleOpenDrawer = () => {
     navigation.dispatch(DrawerActions.openDrawer());
