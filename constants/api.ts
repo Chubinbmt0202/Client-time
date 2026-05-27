@@ -1,9 +1,4 @@
-const BASE_URL = "http://192.168.2.45:3001";
-const BASE_URL2 = "http://172.20.0.209:3001";
-const BASE_4G = "http://192.168.43.108:3001";
-const BASE_URL_BEEP = "http://172.16.98.254:3001"
-const BASR_URL_THEBOOKS = "http://192.168.1.12:3001"
-const BASE_URL_IP_100 = "http://100.110.220.42:3001"
+const BASE_URL_IP_100 = "http://100.109.128.65:3001"
 
 export const API_ENDPOINTS = {
   LOGIN: `${BASE_URL_IP_100}/api/auth/login`,
@@ -18,6 +13,7 @@ export const API_ENDPOINTS = {
   MARK_NOTIFICATION_READ: (id: string) => `${BASE_URL_IP_100}/api/notifications/mark-read/${id}`,
   MARK_ALL_NOTIFICATIONS_READ: `${BASE_URL_IP_100}/api/notifications/mark-all-read`,
   DELETE_NOTIFICATION: (id: string) => `${BASE_URL_IP_100}/api/notifications/delete/${id}`,
+  UPDATE_FCM_TOKEN: `${BASE_URL_IP_100}/api/employees/fcm-token`,
 };
 
 export default {

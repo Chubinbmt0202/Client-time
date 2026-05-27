@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { registerForPushNotificationsAsync, savePushTokenToBackend } from "../utils/notifications";
 import {
   ActivityIndicator,
   Alert,
@@ -94,6 +95,16 @@ export default function LoginScreen() {
         };
         await AsyncStorage.setItem("userData", JSON.stringify(userDataToSave));
         await AsyncStorage.setItem("isFaceUpdated", String(loginData.is_face_updated));
+
+        // Đăng ký quyền và lưu Expo Push Token
+        try {
+          const pushToken = await registerForPushNotificationsAsync();
+          if (pushToken) {
+            await savePushTokenToBackend(id_nhan_vien, pushToken);
+          }
+        } catch (pushErr) {
+          console.error("Lỗi đăng ký push token khi đăng nhập:", pushErr);
+        }
 
         Alert.alert("Thành công", "Đăng nhập thành công!");
         // @ts-ignore

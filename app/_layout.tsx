@@ -25,6 +25,8 @@ import {
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ref, onValue } from "firebase/database";
 import { database } from "../utils/firebase";
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotificationsAsync, savePushTokenToBackend } from '../utils/notifications';
 
 function CustomDrawerContent(props: any) {
   const router = useRouter();
@@ -235,6 +237,63 @@ export default function RootLayout() {
   const pathname = usePathname();
   const navigation = useNavigation();
   const segments = useSegments();
+
+  // Trình lắng nghe và đồng bộ thông báo đẩy (Push Notifications)
+  useEffect(() => {
+    let isMounted = true;
+
+    // 1. Tự động lấy và cập nhật Push Token lên backend để duy trì phiên kết nối
+    const checkAndUpdateToken = async () => {
+      try {
+        const userStr = await AsyncStorage.getItem("userData");
+        if (userStr && isMounted) {
+          const user = JSON.parse(userStr);
+          const id_nhan_vien = user.id_nhan_vien || user.id || "";
+          if (id_nhan_vien) {
+            const token = await registerForPushNotificationsAsync();
+            if (token) {
+              await savePushTokenToBackend(id_nhan_vien, token);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Lỗi tự động cập nhật Push Token:", error);
+      }
+    };
+    checkAndUpdateToken();
+
+    // 2. Thiết lập trình lắng nghe nhận thông báo ở Foreground
+    const notificationSubscription = Notifications.addNotificationReceivedListener(notification => {
+      console.log("🔔 Nhận thông báo ở foreground:", notification);
+    });
+
+    // 3. Thiết lập trình lắng nghe tương tác khi nhấn vào thông báo (Interaction)
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log("👉 Đã click vào thông báo đẩy:", response);
+      try {
+        const data = response.notification.request.content.data;
+        if (data && data.type) {
+          if (data.type === 'LEAVE' || data.type === 'LEAVE_REQUEST') {
+            router.push('/leave-history');
+          } else if (data.type === 'FACE_UPDATE') {
+            router.push('/face-registration');
+          } else {
+            router.push('/notifications');
+          }
+        } else {
+          router.push('/notifications');
+        }
+      } catch (clickErr) {
+        console.error("Lỗi khi xử lý click thông báo đẩy:", clickErr);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      notificationSubscription.remove();
+      responseSubscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     console.log("=============================================");

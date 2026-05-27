@@ -18,14 +18,64 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { database } from "../../utils/firebase";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
+import { API_ENDPOINTS } from "../../constants/api";
 
 const SHIFT_START_HOURS = 8;
 const SHIFT_START_MINUTES = 0;
 const SHIFT_END_HOURS = 17;
 const SHIFT_END_MINUTES = 0;
+
+// Cấu hình cách hiển thị thông báo khi ứng dụng đang mở (Foreground)
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+async function registerForPushNotificationsAsync() {
+  let token;
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      console.warn('Không lấy được quyền thông báo đẩy!');
+      return;
+    }
+    try {
+      token = (await Notifications.getExpoPushTokenAsync({
+        projectId: 'e0c44d27-a348-4b25-85bc-582fe1533484', // Lấy từ app.json của bạn
+      })).data;
+      console.log('📡 Expo Push Token:', token);
+    } catch (tokenErr: any) {
+      console.error('Lỗi lấy Expo Push Token:', tokenErr.message);
+    }
+  } else {
+    console.log('⚠️ Phải chạy trên thiết bị thật để nhận Push Token');
+  }
+
+  return token;
+}
 
 export default function DashboardScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -124,6 +174,57 @@ export default function DashboardScreen() {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, []);
+
+  // 📡 Tự động đăng ký và lưu Push Token lên Backend khi đăng nhập
+  useEffect(() => {
+    if (!profile.id || profile.id === "NV000") return;
+
+    const registerPushToken = async () => {
+      try {
+        const token = await registerForPushNotificationsAsync();
+        if (token) {
+          console.log(`📡 Đang lưu Push Token lên Backend cho nhân viên ${profile.id}...`);
+          const response = await fetch(API_ENDPOINTS.UPDATE_FCM_TOKEN, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              employeeId: profile.id,
+              fcmToken: token,
+            }),
+          });
+          const result = await response.json();
+          if (response.ok && result.success) {
+            console.log('✅ Đã cập nhật Push Token thành công trên Backend!');
+          } else {
+            console.warn('❌ Gửi Push Token lên Backend thất bại:', result.message);
+          }
+        }
+      } catch (err: any) {
+        console.error('❌ Lỗi khi đăng ký nhận thông báo đẩy:', err.message);
+      }
+    };
+
+    registerPushToken();
+  }, [profile.id]);
+
+  // 🔔 Lắng nghe sự kiện thông báo đẩy khi đang mở ứng dụng hoặc khi click vào thông báo
+  useEffect(() => {
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('🔔 Nhận thông báo đẩy trong Foreground:', notification);
+    });
+
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('👆 Người dùng tương tác với thông báo đẩy:', response);
+      router.push('/notifications');
+    });
+
+    return () => {
+      Notifications.removeNotificationSubscription(notificationListener);
+      Notifications.removeNotificationSubscription(responseListener);
+    };
   }, []);
 
   // 🔥 Lắng nghe yêu cầu cập nhật khuôn mặt từ Admin qua Firebase Realtime Database
