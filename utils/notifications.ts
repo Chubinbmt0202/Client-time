@@ -1,8 +1,8 @@
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 import { API_ENDPOINTS } from '../constants/api';
 
 // Configure how notifications are presented when the app is running in the foreground
@@ -50,10 +50,11 @@ export async function registerForPushNotificationsAsync() {
     }
 
     try {
-      token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-      console.log("Expo Push Token:", token);
+      token = (await Notifications.getDevicePushTokenAsync()).data;
+
+      console.log("Native Device Token (FCM):", token);
     } catch (error) {
-      console.error("Lỗi khi lấy Expo Push Token:", error);
+      console.error("Lỗi khi lấy Native Device Token:", error);
     }
   } else {
     console.log('Cần dùng thiết bị thật để nhận thông báo đẩy. Sử dụng token ảo (mock) để test Backend.');

@@ -26,7 +26,8 @@
       "permissions": [
         "android.permission.CAMERA"
       ],
-      "package": "com.trunganh_passenger.Client"
+      "package": "mind.check",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",

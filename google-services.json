@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "121745227059",
+    "firebase_url": "https://mindcheck-68c9f-default-rtdb.firebaseio.com",
+    "project_id": "mindcheck-68c9f",
+    "storage_bucket": "mindcheck-68c9f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:121745227059:android:0abdb1c58147117a939246",
+        "android_client_info": {
+          "package_name": "mind.check"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAEgeptFtsqe6bpvrX7Q9HB2hIbMLrZJtk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
