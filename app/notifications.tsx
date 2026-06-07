@@ -30,6 +30,7 @@ interface NotificationItem {
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [employeeId, setEmployeeId] = useState<string>("");
+  const [isFaceUpdated, setIsFaceUpdated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const router = useRouter();
@@ -43,6 +44,7 @@ export default function NotificationsScreen() {
           const user = JSON.parse(userStr);
           const id = user.id_nhan_vien || "";
           setEmployeeId(id);
+          setIsFaceUpdated(user.is_face_updated === true);
         } else {
           setIsLoading(false);
         }
@@ -67,10 +69,16 @@ export default function NotificationsScreen() {
 
       if (data) {
         // Chuyển đổi object thành array
-        const list: NotificationItem[] = Object.keys(data).map((key) => ({
+        let list: NotificationItem[] = Object.keys(data).map((key) => ({
           ...data[key],
           id_thong_bao: key,
         }));
+
+        // Tự động ẩn các thông báo yêu cầu đăng ký khuôn mặt cũ nếu đã đăng ký rồi
+        if (isFaceUpdated) {
+          list = list.filter((item) => item.loai_thong_bao !== "FACE_UPDATE");
+        }
+
         // Sắp xếp ngày tạo giảm dần (mới nhất lên đầu)
         list.sort((a, b) => {
           const timeA = new Date(a.ngay_tao).getTime();
@@ -99,7 +107,11 @@ export default function NotificationsScreen() {
       const res = await fetch(API_ENDPOINTS.NOTIFICATIONS(employeeId));
       const data = await res.json();
       if (res.ok && data.success) {
-        setNotifications(data.data);
+        let list: NotificationItem[] = data.data;
+        if (isFaceUpdated) {
+          list = list.filter((item) => item.loai_thong_bao !== "FACE_UPDATE");
+        }
+        setNotifications(list);
       }
     } catch (error) {
       console.error("Lỗi fallback lấy thông báo:", error);

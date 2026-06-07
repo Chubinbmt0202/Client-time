@@ -25,7 +25,7 @@ import { API_ENDPOINTS } from "../../constants/api";
 import { uploadImageToCloudinary } from "../../constants/cloudinary";
 
 const LEAVE_TYPES = [
-  { id: "annual", label: "Phép năm", icon: "calendar-check" },
+  { id: "monthly", label: "Phép hàng tháng", icon: "calendar-check" },
   { id: "sick", label: "Nghỉ ốm", icon: "pill" },
   { id: "personal", label: "Việc riêng", icon: "account-clock" },
 ];

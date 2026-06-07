@@ -264,17 +264,8 @@ export default function DashboardScreen() {
             },
             {
               text: "Bỏ qua",
-              onPress: async () => {
-                // 1. Cập nhật local state & AsyncStorage để chuyển đổi UI về trạng thái chưa đăng ký
-                setIsFaceUpdated(false);
-                await AsyncStorage.setItem("isFaceUpdated", "false");
-                const userStr = await AsyncStorage.getItem("userData");
-                if (userStr) {
-                  const user = JSON.parse(userStr);
-                  user.is_face_updated = false;
-                  await AsyncStorage.setItem("userData", JSON.stringify(user));
-                }
-              }
+              style: "cancel",
+              onPress: () => console.log("Người dùng đã chọn Bỏ qua cập nhật khuôn mặt"),
             }
           ],
           { cancelable: false }
@@ -296,10 +287,16 @@ export default function DashboardScreen() {
     const unsubscribe = onValue(notiRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const list = Object.keys(data).map((key) => ({
+        let list = Object.keys(data).map((key) => ({
           ...data[key],
           id_thong_bao: key,
         }));
+
+        // Tối ưu: Bỏ qua đếm và hiển thị các thông báo FACE_UPDATE nếu người dùng đã đăng ký khuôn mặt
+        if (isFaceUpdated) {
+          list = list.filter((item) => item.loai_thong_bao !== "FACE_UPDATE");
+        }
+
         // Sắp xếp ngày tạo giảm dần
         list.sort((a, b) => new Date(b.ngay_tao).getTime() - new Date(a.ngay_tao).getTime());
         setRecentNotifications(list);

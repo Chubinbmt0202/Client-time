@@ -37,6 +37,7 @@ function CustomDrawerContent(props: any) {
     role: "NHÂN VIÊN"
   });
   const [unreadCount, setUnreadCount] = React.useState(0);
+  const [isFaceUpdated, setIsFaceUpdated] = React.useState(false);
 
   React.useEffect(() => {
     AsyncStorage.getItem("userData").then(str => {
@@ -47,6 +48,7 @@ function CustomDrawerContent(props: any) {
           id: user.id_nhan_vien || "NV000",
           role: user.vai_tro === "admin" ? "QUẢN TRỊ VIÊN" : "NHÂN VIÊN"
         });
+        setIsFaceUpdated(user.is_face_updated === true);
       }
     });
   }, [pathname]);
@@ -59,7 +61,16 @@ function CustomDrawerContent(props: any) {
     const unsubscribe = onValue(notiRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const count = Object.values(data).filter((n: any) => !n.da_doc).length;
+        let count = 0;
+        Object.values(data).forEach((n: any) => {
+          if (!n.da_doc) {
+            // Tối ưu: Nếu đã cập nhật khuôn mặt rồi thì bỏ qua đếm thông báo FACE_UPDATE
+            if (isFaceUpdated && n.loai_thong_bao === "FACE_UPDATE") {
+              return;
+            }
+            count++;
+          }
+        });
         setUnreadCount(count);
       } else {
         setUnreadCount(0);
