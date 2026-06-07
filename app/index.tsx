@@ -1,5 +1,6 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from 'expo-location';
+import * as Device from 'expo-device';
 import { NetworkInfo } from 'react-native-network-info';
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -59,6 +60,11 @@ export default function LoginScreen() {
           username: employeeId,
           password: password,
           wifi_bssid: wifi_bssid,
+          device_info: {
+            model_name: Device.modelName || "Thiết bị không xác định",
+            os_name: Device.osName || "Hệ điều hành không rõ",
+            os_version: Device.osVersion || "Phiên bản không rõ"
+          }
         }),
       });
 

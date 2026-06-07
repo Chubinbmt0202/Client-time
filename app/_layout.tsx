@@ -49,7 +49,7 @@ function CustomDrawerContent(props: any) {
         });
       }
     });
-  }, []);
+  }, [pathname]);
 
   // Lắng nghe số lượng thông báo chưa đọc realtime từ Firebase
   React.useEffect(() => {
@@ -137,7 +137,7 @@ function CustomDrawerContent(props: any) {
       ),
       label: "Thông báo",
       route: "/notifications",
-      badge: unreadCount > 0 ? unreadCount : undefined,
+      badge: unreadCount > 99 ? "99+" : (unreadCount > 0 ? unreadCount : undefined),
     },
     {
       icon: <MaterialIcons name="person-outline" size={24} color="#475569" />,

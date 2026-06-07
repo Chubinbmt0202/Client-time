@@ -160,37 +160,6 @@ export default function NotificationsScreen() {
     }
   };
 
-  // Delete a notification
-  const handleDeleteNotification = (id: string) => {
-    Alert.alert(
-      "Xóa thông báo",
-      "Bạn có chắc chắn muốn xóa thông báo này?",
-      [
-        { text: "Hủy", style: "cancel" },
-        {
-          text: "Xóa",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const res = await fetch(API_ENDPOINTS.DELETE_NOTIFICATION(id), {
-                method: "DELETE",
-              });
-              const data = await res.json();
-              if (res.ok && data.success) {
-                console.log("Đã xóa thông báo!");
-              } else {
-                Alert.alert("Lỗi", data.message || "Không thể xóa thông báo.");
-              }
-            } catch (error) {
-              console.error("Lỗi xóa thông báo:", error);
-              Alert.alert("Lỗi kết nối", "Không thể kết nối tới server.");
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
 
   // Helper to format date
   const formatTime = (timeInput: string | number) => {
@@ -268,8 +237,8 @@ export default function NotificationsScreen() {
           </Text>
 
           {/* Action Footer */}
-          <View style={styles.actionFooter}>
-            {!item.da_doc && (
+          {!item.da_doc && (
+            <View style={styles.actionFooter}>
               <TouchableOpacity
                 style={styles.markReadBtn}
                 onPress={() => handleMarkAsRead(item.id_thong_bao, item.da_doc)}
@@ -277,15 +246,8 @@ export default function NotificationsScreen() {
                 <Feather name="check" size={14} color="#1C75FF" />
                 <Text style={styles.actionText}>Đọc</Text>
               </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={styles.deleteBtn}
-              onPress={() => handleDeleteNotification(item.id_thong_bao)}
-            >
-              <Feather name="trash-2" size={13} color="#EF4444" />
-              <Text style={[styles.actionText, { color: "#EF4444" }]}>Xóa</Text>
-            </TouchableOpacity>
-          </View>
+            </View>
+          )}
         </View>
         {!item.da_doc && <View style={styles.unreadDot} />}
       </TouchableOpacity>
@@ -303,7 +265,7 @@ export default function NotificationsScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thông báo</Text>
         <TouchableOpacity style={styles.markAllButton} onPress={handleMarkAllAsRead}>
-          <MaterialCommunityIcons name="email-open-outline" size={22} color="#1C75FF" />
+          <Text style={styles.markAllText}>Đã xem tất cả</Text>
         </TouchableOpacity>
       </View>
 
@@ -375,6 +337,13 @@ const styles = StyleSheet.create({
   },
   markAllButton: {
     padding: 6,
+    backgroundColor: "#EEF2FF",
+    borderRadius: 8,
+  },
+  markAllText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#1C75FF",
   },
   centered: {
     flex: 1,
@@ -453,11 +422,6 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   markReadBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  deleteBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,

@@ -5,6 +5,8 @@ import {
   useFocusEffect,
   useNavigation,
 } from "@react-navigation/native";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { onValue, ref } from "firebase/database";
@@ -12,19 +14,17 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Image,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { database } from "../../utils/firebase";
-import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
 import { API_ENDPOINTS } from "../../constants/api";
+import { database } from "../../utils/firebase";
 
 const SHIFT_START_HOURS = 8;
 const SHIFT_START_MINUTES = 0;
@@ -395,7 +395,11 @@ export default function DashboardScreen() {
           <View>
             <Feather name="bell" size={24} color="#0F172A" />
             {recentNotifications.some(n => !n.da_doc) && (
-              <View style={styles.notificationDot} />
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {recentNotifications.filter(n => !n.da_doc).length > 99 ? "99+" : recentNotifications.filter(n => !n.da_doc).length}
+                </Text>
+              </View>
             )}
           </View>
         </TouchableOpacity>
@@ -671,7 +675,7 @@ export default function DashboardScreen() {
                 recentNotifications.slice(0, 2).map((item) => {
                   let icon = <Feather name="bell" size={20} color="#64748B" />;
                   let bgColor = "#F1F5F9";
-                  
+
                   if (item.loai_thong_bao === "FACE_UPDATE") {
                     icon = <MaterialCommunityIcons name="face-recognition" size={22} color="#1C75FF" />;
                     bgColor = "#EEF4FE";
@@ -752,16 +756,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#0F172A",
   },
-  notificationDot: {
+  notificationBadge: {
     position: "absolute",
-    top: 2,
-    right: 2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: -4,
+    right: -4,
     backgroundColor: "#EF4444",
-    borderWidth: 1,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
     borderColor: "#FFFFFF",
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "bold",
   },
   scrollContent: {
     padding: 20,
