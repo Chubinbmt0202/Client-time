@@ -16,7 +16,7 @@ import {
   useCameraDevice,
   useCameraPermission,
 } from "react-native-vision-camera";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused, useFocusEffect } from "@react-navigation/native";
 import { API_ENDPOINTS } from "../constants/api";
 
 import { useFaceDetection } from "../hooks/useFaceDetection";
@@ -35,6 +35,9 @@ export default function CheckOutScreen() {
   const [isReady, setIsReady] = useState(false);
   // 🚀 Đếm 1.5 giây sau khi mở màn hình mới cho phép AI bắt đầu canh chụp
   const [statusMessage, setStatusMessage] = useState("Đang khởi động");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const isCapturing = useRef(false);
+
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -42,17 +45,24 @@ export default function CheckOutScreen() {
         Alert.alert('Cấp quyền', 'Ứng dụng cần quyền vị trí để ghi nhận wifi và gps.');
       }
     })();
-
-    const timer = setTimeout(() => {
-      setIsReady(true);
-      setStatusMessage("Nhìn thẳng để chấm công ra");
-    }, 1500);
-    return () => clearTimeout(timer);
   }, []);
 
-  const [isProcessing, setIsProcessing] = useState(false);
+  useFocusEffect(
+    React.useCallback(() => {
+      // Reset state mỗi khi vào lại màn hình
+      setIsProcessing(false);
+      isCapturing.current = false;
+      setIsReady(false);
+      setStatusMessage("Đang khởi động");
 
-  const isCapturing = useRef(false);
+      const timer = setTimeout(() => {
+        setIsReady(true);
+        setStatusMessage("Nhìn thẳng để chấm công ra");
+      }, 1500);
+
+      return () => clearTimeout(timer);
+    }, [])
+  );
 
   // 2. CHỈ CẦN DETECT KHUÔN MẶT ĐỂ TỰ ĐỘNG CHỤP (Bỏ useFaceEmbedding)
   const { faceData, frameProcessor } = useFaceDetection(isProcessing);

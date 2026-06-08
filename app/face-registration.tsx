@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused, useFocusEffect } from "@react-navigation/native";
 
 import { FocusFrame } from "../components/FaceRegistration/FocusFrame";
 import { GuideOverlay } from "../components/FaceRegistration/GuideOverlay";
@@ -20,7 +20,14 @@ export default function FaceRegistrationScreen() {
     capturedImages,
     statusMessage,
     frameProcessor,
+    resetRegistration,
   } = useFaceRegistration(cameraRef);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      resetRegistration();
+    }, [])
+  );
 
   if (device == null) {
     return (

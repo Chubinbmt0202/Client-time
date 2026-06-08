@@ -1,4 +1,4 @@
-const BASE_URL_IP_100 = "http://172.21.0.83:3001"
+const BASE_URL_IP_100 = "http://100.98.97.96:3001"
 
 export const API_ENDPOINTS = {
   LOGIN: `${BASE_URL_IP_100}/api/auth/login`,
@@ -14,6 +14,7 @@ export const API_ENDPOINTS = {
   MARK_ALL_NOTIFICATIONS_READ: `${BASE_URL_IP_100}/api/notifications/mark-all-read`,
   DELETE_NOTIFICATION: (id: string) => `${BASE_URL_IP_100}/api/notifications/delete/${id}`,
   UPDATE_FCM_TOKEN: `${BASE_URL_IP_100}/api/employees/fcm-token`,
+  CREATE_OT: `${BASE_URL_IP_100}/api/ot/create`,
 };
 
 export default {

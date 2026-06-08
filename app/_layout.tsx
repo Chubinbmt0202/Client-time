@@ -143,6 +143,11 @@ function CustomDrawerContent(props: any) {
       route: "",
     },
     {
+      icon: <MaterialCommunityIcons name="briefcase-clock-outline" size={24} color={pathname === "/overtime" ? "#1C75FF" : "#475569"} />,
+      label: "Đăng ký tăng ca",
+      route: "/overtime",
+    },
+    {
       icon: (
         <MaterialIcons name="notifications-none" size={24} color={pathname === "/notifications" ? "#1C75FF" : "#475569"} />
       ),
@@ -426,6 +431,10 @@ export default function RootLayout() {
           />
           <Drawer.Screen
             name="notifications"
+            options={{ headerShown: false, swipeEnabled: false }}
+          />
+          <Drawer.Screen
+            name="overtime"
             options={{ headerShown: false, swipeEnabled: false }}
           />
         </Drawer>

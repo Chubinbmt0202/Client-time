@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused, useFocusEffect } from "@react-navigation/native";
 import * as Location from 'expo-location';
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -35,6 +35,9 @@ export default function CheckInScreen() {
   const [isReady, setIsReady] = useState(false);
   // 🚀 Đếm 1.5 giây sau khi mở màn hình mới cho phép AI bắt đầu canh chụp
   const [statusMessage, setStatusMessage] = useState("Đang khởi động");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const isCapturing = useRef(false);
+
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -42,17 +45,24 @@ export default function CheckInScreen() {
         Alert.alert('Cấp quyền', 'Ứng dụng cần quyền vị trí để ghi nhận vị trí của bạn.');
       }
     })();
-
-    const timer = setTimeout(() => {
-      setIsReady(true);
-      setStatusMessage("Nhìn thẳng để chấm công vào");
-    }, 1500);
-    return () => clearTimeout(timer);
   }, []);
 
-  const [isProcessing, setIsProcessing] = useState(false);
+  useFocusEffect(
+    React.useCallback(() => {
+      // Reset state mỗi khi vào lại màn hình
+      setIsProcessing(false);
+      isCapturing.current = false;
+      setIsReady(false);
+      setStatusMessage("Đang khởi động");
 
-  const isCapturing = useRef(false);
+      const timer = setTimeout(() => {
+        setIsReady(true);
+        setStatusMessage("Nhìn thẳng để chấm công vào");
+      }, 1500);
+
+      return () => clearTimeout(timer);
+    }, [])
+  );
 
   // 2. CHỈ CẦN DETECT KHUÔN MẶT ĐỂ TỰ ĐỘNG CHỤP (Bỏ useFaceEmbedding)
   const { faceData, frameProcessor } = useFaceDetection(isProcessing);
