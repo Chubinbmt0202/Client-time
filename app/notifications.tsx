@@ -2,7 +2,7 @@ import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { onValue, ref } from "firebase/database";
+import { onValue, ref, query, limitToLast, orderByChild } from "firebase/database";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -60,10 +60,11 @@ export default function NotificationsScreen() {
   useEffect(() => {
     if (!employeeId) return;
 
-    console.log(`📡 Lắng nghe thông báo realtime cho: ${employeeId}`);
+    console.log(`📡 Lắng nghe thông báo realtime (tối đa 30 cái) cho: ${employeeId}`);
     const notiRef = ref(database, `notifications/${employeeId}`);
+    const notiQuery = query(notiRef, orderByChild("ngay_tao"), limitToLast(30));
 
-    const unsubscribe = onValue(notiRef, (snapshot) => {
+    const unsubscribe = onValue(notiQuery, (snapshot) => {
       const data = snapshot.val();
       setIsLoading(false);
 

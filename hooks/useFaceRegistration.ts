@@ -158,6 +158,7 @@ export const useFaceRegistration = (cameraRef: React.RefObject<any>) => {
         if (userDataString) {
           const userData = JSON.parse(userDataString);
           userData.is_face_updated = true;
+          userData.hinh_anh = urls[0]; // Cập nhật hình ảnh đại diện bằng hình đầu tiên
           await AsyncStorage.setItem("userData", JSON.stringify(userData));
         }
 

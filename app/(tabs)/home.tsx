@@ -9,7 +9,7 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { onValue, ref } from "firebase/database";
+import { onValue, ref, query, limitToLast, orderByChild } from "firebase/database";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -87,7 +87,8 @@ export default function DashboardScreen() {
     id: string;
     role: string;
     username: string;
-  }>({ name: "", id: "", role: "", username: "" });
+    avatar: string;
+  }>({ name: "", id: "", role: "", username: "", avatar: "" });
 
   // 🚀 DỮ LIỆU ĐIỂM DANH HÔM NAY
   const [attendance, setAttendance] = useState<{
@@ -113,6 +114,7 @@ export default function DashboardScreen() {
           id: user.id_nhan_vien || "NV000",
           role: user.vai_tro === "admin" ? "Quản trị viên" : "Nhân viên",
           username: user.ten_dang_nhap || "",
+          avatar: user.hinh_anh || "https://randomuser.me/api/portraits/men/32.jpg",
         };
         setProfile(userProfile);
 
@@ -284,7 +286,8 @@ export default function DashboardScreen() {
     if (!profile.id || profile.id === "NV000") return;
 
     const notiRef = ref(database, `notifications/${profile.id}`);
-    const unsubscribe = onValue(notiRef, (snapshot) => {
+    const notiQuery = query(notiRef, orderByChild("ngay_tao"), limitToLast(30));
+    const unsubscribe = onValue(notiQuery, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         let list = Object.keys(data).map((key) => ({
@@ -367,6 +370,41 @@ export default function DashboardScreen() {
     }
   };
 
+  const handleCheckInPress = () => {
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+
+    // Giới hạn thời gian chấm công sớm: Không được chấm công trước quá 1 tiếng (trước 7:00)
+    const isTooEarly = currentHours < (SHIFT_START_HOURS - 1);
+
+    if (isTooEarly) {
+      Alert.alert(
+        "Không thể vào ca",
+        "Chưa tới ca làm việc. Bạn chỉ được phép chấm công sớm tối đa 1 tiếng trước khi vào ca.",
+        [{ text: "Đã hiểu", style: "cancel" }]
+      );
+      return;
+    }
+
+    // Giới hạn thời gian chấm công vào ca: Không được chấm công sau 8:30 (quá 30 phút)
+    const isAfterLateLimit =
+      currentHours > SHIFT_START_HOURS ||
+      (currentHours === SHIFT_START_HOURS && currentMinutes > 30);
+    
+    // Nếu muộn hơn 8:30 hoặc đã qua giờ hành chính thì chặn
+    if (isAfterLateLimit) {
+      Alert.alert(
+        "Không thể vào ca",
+        "Hiện tại không nằm trong thời gian làm việc (bạn đã vào ca trễ quá 30 phút). Nếu bạn muốn làm việc giờ này, vui lòng đăng ký tăng ca.",
+        [{ text: "Đã hiểu", style: "cancel" }]
+      );
+      return;
+    }
+
+    router.push("/face-check-in");
+  };
+
   const days = [
     "CHỦ NHẬT",
     "THỨ 2",
@@ -431,7 +469,7 @@ export default function DashboardScreen() {
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <Image
-            source={{ uri: "https://randomuser.me/api/portraits/men/32.jpg" }}
+            source={{ uri: profile.avatar || "https://randomuser.me/api/portraits/men/32.jpg" }}
             style={styles.avatar}
           />
           <View style={styles.profileInfo}>
@@ -529,7 +567,7 @@ export default function DashboardScreen() {
                   styles.attendanceButton,
                   attendance.checkIn ? styles.disabledAttendanceBtn : styles.checkInBtn
                 ]}
-                onPress={() => router.push("/face-check-in")}
+                onPress={handleCheckInPress}
                 disabled={!!attendance.checkIn}
               >
                 <MaterialCommunityIcons

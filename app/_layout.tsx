@@ -23,7 +23,7 @@ import {
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { ref, onValue } from "firebase/database";
+import { ref, onValue, query, limitToLast, orderByChild } from "firebase/database";
 import { database } from "../utils/firebase";
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync, savePushTokenToBackend } from '../utils/notifications';
@@ -34,7 +34,8 @@ function CustomDrawerContent(props: any) {
   const [profile, setProfile] = React.useState({
     name: "Người dùng",
     id: "NV000",
-    role: "NHÂN VIÊN"
+    role: "NHÂN VIÊN",
+    avatar: "https://randomuser.me/api/portraits/men/32.jpg"
   });
   const [unreadCount, setUnreadCount] = React.useState(0);
   const [isFaceUpdated, setIsFaceUpdated] = React.useState(false);
@@ -46,7 +47,8 @@ function CustomDrawerContent(props: any) {
         setProfile({
           name: user.ho_va_ten || "Người dùng",
           id: user.id_nhan_vien || "NV000",
-          role: user.vai_tro === "admin" ? "QUẢN TRỊ VIÊN" : "NHÂN VIÊN"
+          role: user.vai_tro === "admin" ? "QUẢN TRỊ VIÊN" : "NHÂN VIÊN",
+          avatar: user.hinh_anh || "https://randomuser.me/api/portraits/men/32.jpg"
         });
         setIsFaceUpdated(user.is_face_updated === true);
       }
@@ -58,7 +60,8 @@ function CustomDrawerContent(props: any) {
     if (!profile.id || profile.id === "NV000") return;
 
     const notiRef = ref(database, `notifications/${profile.id}`);
-    const unsubscribe = onValue(notiRef, (snapshot) => {
+    const notiQuery = query(notiRef, orderByChild("ngay_tao"), limitToLast(30));
+    const unsubscribe = onValue(notiQuery, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         let count = 0;
@@ -168,7 +171,7 @@ function CustomDrawerContent(props: any) {
       <View style={styles.profileHeader}>
         <View style={styles.avatarContainer}>
           <Image
-            source={{ uri: "https://randomuser.me/api/portraits/men/32.jpg" }}
+            source={{ uri: profile.avatar || "https://randomuser.me/api/portraits/men/32.jpg" }}
             style={styles.avatar}
           />
           <View style={styles.onlineDot} />

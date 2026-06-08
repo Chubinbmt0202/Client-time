@@ -22,6 +22,7 @@ interface UserData {
   ten_vai_tro?: string;
   vai_tro?: string;
   role?: string;
+  hinh_anh?: string;
 }
 
 export default function ProfileScreen() {
@@ -102,7 +103,7 @@ export default function ProfileScreen() {
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             <Image
-              source={{ uri: "https://randomuser.me/api/portraits/men/32.jpg" }}
+              source={{ uri: userData?.hinh_anh || "https://randomuser.me/api/portraits/men/32.jpg" }}
               style={styles.avatar}
             />
             <View style={styles.editAvatarBtn}>
