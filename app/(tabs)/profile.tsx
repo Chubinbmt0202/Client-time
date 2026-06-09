@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import { API_ENDPOINTS } from "../../constants/api";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -56,12 +57,6 @@ export default function ProfileScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [updatingPassword, setUpdatingPassword] = useState(false);
 
-  // States cho cài đặt thông báo
-  const [notiAttendance, setNotiAttendance] = useState(true);
-  const [notiLeave, setNotiLeave] = useState(true);
-  const [notiOvertime, setNotiOvertime] = useState(true);
-  const [notiSystem, setNotiSystem] = useState(false);
-
   const fetchUserData = async () => {
     try {
       const storedData = await AsyncStorage.getItem("userData");
@@ -111,32 +106,57 @@ export default function ProfileScreen() {
       return;
     }
 
+    const userId = userData?.id_nhan_vien || userData?.id;
+    if (!userId) {
+      Alert.alert("Lỗi", "Không tìm thấy mã nhân viên.");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const updatedData = {
-        ...userData,
-        ho_va_ten: editName.trim(),
-        full_name: editName.trim(),
-        so_dien_thoai: editPhone.trim(),
-        dia_chi: editAddress.trim(),
-        email: editEmail.trim(),
-      };
-      
-      await AsyncStorage.setItem("userData", JSON.stringify(updatedData));
-      setUserData(updatedData);
-      setModalType("none");
-      
-      Alert.alert("Thành công", "Đã cập nhật thông tin cá nhân của bạn.");
+      const response = await fetch(API_ENDPOINTS.UPDATE_PROFILE(userId), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          full_name: editName.trim(),
+          phone_number: editPhone.trim(),
+          address: editAddress.trim(),
+          email: editEmail.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        const updatedData = {
+          ...userData,
+          ...result.data,
+          ho_va_ten: result.data?.full_name || editName.trim(),
+          full_name: result.data?.full_name || editName.trim(),
+          so_dien_thoai: result.data?.phone_number || editPhone.trim(),
+          dia_chi: result.data?.address || editAddress.trim(),
+          email: result.data?.email || editEmail.trim(),
+        };
+        
+        await AsyncStorage.setItem("userData", JSON.stringify(updatedData));
+        setUserData(updatedData);
+        setModalType("none");
+        Alert.alert("Thành công", "Đã cập nhật thông tin cá nhân của bạn.");
+      } else {
+        Alert.alert("Lỗi", result.message || "Cập nhật thất bại.");
+      }
     } catch (err) {
       console.error("Lỗi khi lưu thông tin cá nhân:", err);
-      Alert.alert("Thất bại", "Không thể lưu thông tin. Vui lòng thử lại.");
+      Alert.alert("Thất bại", "Không thể lưu thông tin. Vui lòng kiểm tra kết nối mạng.");
     } finally {
       setIsLoading(false);
     }
   };
 
   // Đổi mật khẩu
-  const handleUpdatePassword = () => {
+  const handleUpdatePassword = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
       Alert.alert("Lỗi", "Vui lòng nhập đầy đủ tất cả các trường mật khẩu.");
       return;
@@ -152,16 +172,42 @@ export default function ProfileScreen() {
       return;
     }
 
+    const userId = userData?.id_nhan_vien || userData?.id;
+    if (!userId) {
+      Alert.alert("Lỗi", "Không tìm thấy mã nhân viên.");
+      return;
+    }
+
     setUpdatingPassword(true);
-    // Giả lập thay đổi mật khẩu
-    setTimeout(() => {
+    try {
+      const response = await fetch(API_ENDPOINTS.CHANGE_PASSWORD(userId), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          oldPassword,
+          newPassword,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setOldPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setModalType("none");
+        Alert.alert("Thành công", "Mật khẩu của bạn đã được thay đổi thành công.");
+      } else {
+        Alert.alert("Lỗi", result.message || "Đổi mật khẩu thất bại.");
+      }
+    } catch (err) {
+      console.error("Lỗi khi đổi mật khẩu:", err);
+      Alert.alert("Thất bại", "Không thể đổi mật khẩu. Vui lòng kiểm tra kết nối mạng.");
+    } finally {
       setUpdatingPassword(false);
-      setOldPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      setModalType("none");
-      Alert.alert("Thành công", "Mật khẩu của bạn đã được thay đổi thành công.");
-    }, 1500);
+    }
   };
 
   const menuGroups = [
@@ -176,7 +222,6 @@ export default function ProfileScreen() {
     {
       title: "Khác",
       items: [
-        { icon: "bell-outline", label: "Cài đặt thông báo", color: "#F59E0B", action: () => setModalType("notifications") },
         { icon: "help-circle-outline", label: "Trợ giúp & Hỗ trợ", color: "#64748B", action: () => setModalType("support") },
         { icon: "information-outline", label: "Về ứng dụng", color: "#64748B", action: () => setModalType("about") },
       ],
@@ -278,7 +323,7 @@ export default function ProfileScreen() {
       </ScrollView>
 
       {/* ========================================================================= */}
-      // MODAL 1: THÔNG TIN CÁ NHÂN CHI TIẾT
+      {/* MODAL 1: THÔNG TIN CÁ NHÂN CHI TIẾT */}
       {/* ========================================================================= */}
       <Modal
         visible={modalType === "personal"}
@@ -378,7 +423,7 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* ========================================================================= */}
-      // MODAL 2: BẢO MẬT & MẬT KHẨU
+      {/* MODAL 2: BẢO MẬT & MẬT KHẨU */}
       {/* ========================================================================= */}
       <Modal
         visible={modalType === "security"}
@@ -452,94 +497,7 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* ========================================================================= */}
-      // MODAL 3: CÀI ĐẶT THÔNG BÁO
-      {/* ========================================================================= */}
-      <Modal
-        visible={modalType === "notifications"}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setModalType("none")}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Cài đặt thông báo</Text>
-              <TouchableOpacity onPress={() => setModalType("none")}>
-                <Ionicons name="close" size={24} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalBody}>
-              <View style={styles.switchRow}>
-                <View style={styles.switchLabelCol}>
-                  <Text style={styles.switchLabel}>Thông báo chấm công</Text>
-                  <Text style={styles.switchSubLabel}>Báo động khi chấm công thành công / đi trễ</Text>
-                </View>
-                <Switch
-                  value={notiAttendance}
-                  onValueChange={setNotiAttendance}
-                  trackColor={{ false: "#E2E8F0", true: "#93C5FD" }}
-                  thumbColor={notiAttendance ? "#1C75FF" : "#CBD5E1"}
-                />
-              </View>
-
-              <View style={styles.switchRow}>
-                <View style={styles.switchLabelCol}>
-                  <Text style={styles.switchLabel}>Thông báo nghỉ phép</Text>
-                  <Text style={styles.switchSubLabel}>Cập nhật trạng thái duyệt đơn xin phép nghỉ</Text>
-                </View>
-                <Switch
-                  value={notiLeave}
-                  onValueChange={setNotiLeave}
-                  trackColor={{ false: "#E2E8F0", true: "#93C5FD" }}
-                  thumbColor={notiLeave ? "#1C75FF" : "#CBD5E1"}
-                />
-              </View>
-
-              <View style={styles.switchRow}>
-                <View style={styles.switchLabelCol}>
-                  <Text style={styles.switchLabel}>Thông báo tăng ca (OT)</Text>
-                  <Text style={styles.switchSubLabel}>Cập nhật trạng thái phê duyệt đơn OT</Text>
-                </View>
-                <Switch
-                  value={notiOvertime}
-                  onValueChange={setNotiOvertime}
-                  trackColor={{ false: "#E2E8F0", true: "#93C5FD" }}
-                  thumbColor={notiOvertime ? "#1C75FF" : "#CBD5E1"}
-                />
-              </View>
-
-              <View style={styles.switchRow}>
-                <View style={styles.switchLabelCol}>
-                  <Text style={styles.switchLabel}>Tin tức hệ thống</Text>
-                  <Text style={styles.switchSubLabel}>Các sự kiện, thông báo chung từ công ty</Text>
-                </View>
-                <Switch
-                  value={notiSystem}
-                  onValueChange={setNotiSystem}
-                  trackColor={{ false: "#E2E8F0", true: "#93C5FD" }}
-                  thumbColor={notiSystem ? "#1C75FF" : "#CBD5E1"}
-                />
-              </View>
-            </View>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity 
-                style={[styles.btnPrimary, { width: "100%" }]} 
-                onPress={() => {
-                  setModalType("none");
-                  Alert.alert("Thành công", "Cài đặt thông báo đã được lưu lại.");
-                }}
-              >
-                <Text style={styles.btnPrimaryText}>Đồng ý</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ========================================================================= */}
-      // MODAL 4: TRỢ GIÚP & HỖ TRỢ
+      {/* MODAL 4: TRỢ GIÚP & HỖ TRỢ */}
       {/* ========================================================================= */}
       <Modal
         visible={modalType === "support"}
@@ -599,7 +557,7 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* ========================================================================= */}
-      // MODAL 5: VỀ ỨNG DỤNG
+      {/* MODAL 5: VỀ ỨNG DỤNG */}
       {/* ========================================================================= */}
       <Modal
         visible={modalType === "about"}

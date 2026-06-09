@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 interface LoadingOverlayProps {
   isVisible: boolean;
@@ -10,7 +10,8 @@ export const LoadingOverlay = ({ isVisible }: LoadingOverlayProps) => {
 
   return (
     <View style={styles.loadingOverlay}>
-      <ActivityIndicator size="large" color="#00FF00" />
+      <ActivityIndicator size="large" color="#3B82F6" />
+      <Text style={styles.loadingText}>Đang phân tích khuôn mặt...</Text>
     </View>
   );
 };
@@ -18,8 +19,14 @@ export const LoadingOverlay = ({ isVisible }: LoadingOverlayProps) => {
 const styles = StyleSheet.create({
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(15, 23, 42, 0.8)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+    marginTop: 12,
   },
 });

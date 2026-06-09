@@ -25,6 +25,7 @@ import { uploadImageToCloudinary } from "../constants/cloudinary";
 
 // 🚀 THÊM IMPORT THƯ VIỆN ÉP CÂN ẢNH Ở ĐÂY
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { FocusFrame } from "../components/FaceRegistration/FocusFrame";
 
 export default function CheckInScreen() {
   const router = useRouter();
@@ -274,17 +275,17 @@ export default function CheckInScreen() {
       />
 
       <View style={styles.overlay}>
-        <View style={styles.focusFrame} />
+        <FocusFrame color="#10B981" />
 
         <View style={styles.guideContainer}>
-          <Text style={styles.titleText}>CHẤM CÔNG VÀO</Text>
+          <Text style={styles.titleText}>CHẤM CÔNG VÀO CA</Text>
           <Text style={styles.statusText}>{statusMessage}</Text>
         </View>
 
         {isProcessing && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#00FF00" />
-            <Text style={styles.loadingText}>Đang xử lý dữ liệu...</Text>
+            <ActivityIndicator size="large" color="#10B981" />
+            <Text style={styles.loadingText}>Đang nhận dạng khuôn mặt...</Text>
           </View>
         )}
 
@@ -302,39 +303,61 @@ export default function CheckInScreen() {
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#000" },
   overlay: { ...StyleSheet.absoluteFillObject, justifyContent: "center", alignItems: "center" },
-  focusFrame: {
-    width: 260,
-    height: 260,
-    borderWidth: 3,
-    borderColor: "#00FF00",
-    borderRadius: 130,
-    backgroundColor: "transparent",
-  },
   guideContainer: {
     position: "absolute",
     top: 60,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    padding: 20,
-    borderRadius: 15,
+    backgroundColor: "rgba(15, 23, 42, 0.85)", // Slate dark glassmorphism
+    padding: 16,
+    borderRadius: 16,
     alignItems: "center",
     width: "85%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  titleText: { color: "#FFF", fontSize: 14, fontWeight: "bold", opacity: 0.8 },
-  statusText: { color: "#00FF00", fontSize: 20, fontWeight: "bold", textAlign: "center", marginTop: 5 },
+  titleText: {
+    color: "#94A3B8",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  statusText: {
+    color: "#10B981", // Neon green for check-in
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(15, 23, 42, 0.8)",
     justifyContent: "center",
     alignItems: "center",
   },
-  loadingText: { color: "#00FF00", marginTop: 10, fontSize: 16, fontWeight: "bold" },
+  loadingText: {
+    color: "#FFFFFF",
+    marginTop: 12,
+    fontSize: 15,
+    fontWeight: "600",
+  },
   backButton: {
     position: "absolute",
     bottom: 50,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(15, 23, 42, 0.7)",
     paddingVertical: 12,
-    paddingHorizontal: 30,
+    paddingHorizontal: 32,
     borderRadius: 25,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
   },
-  backText: { color: "#FFF", fontWeight: "bold" },
+  backText: {
+    color: "#FFF",
+    fontWeight: "700",
+    fontSize: 15,
+  },
 });

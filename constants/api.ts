@@ -16,6 +16,8 @@ export const API_ENDPOINTS = {
   UPDATE_FCM_TOKEN: `${BASE_URL_IP_100}/api/employees/fcm-token`,
   CREATE_OT: `${BASE_URL_IP_100}/api/ot/create`,
   OT_HISTORY: (employeeId: string) => `${BASE_URL_IP_100}/api/ot/history/${employeeId}`,
+  UPDATE_PROFILE: (id: string) => `${BASE_URL_IP_100}/api/employees/update/${id}`,
+  CHANGE_PASSWORD: (id: string) => `${BASE_URL_IP_100}/api/employees/change-password/${id}`,
 };
 
 export default {

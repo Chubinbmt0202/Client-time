@@ -134,17 +134,7 @@ function CustomDrawerContent(props: any) {
       label: "Trạng thái đơn nghỉ phép",
       route: "/leave-history",
     },
-    {
-      icon: (
-        <MaterialCommunityIcons
-          name="cash-multiple"
-          size={24}
-          color="#475569"
-        />
-      ),
-      label: "Bảng lương",
-      route: "/payroll",
-    },
+
     {
       icon: <MaterialCommunityIcons name="briefcase-clock-outline" size={24} color={pathname === "/overtime" ? "#1C75FF" : "#475569"} />,
       label: "Đăng ký tăng ca",
@@ -218,7 +208,7 @@ function CustomDrawerContent(props: any) {
                 )}
               </TouchableOpacity>
               {/* Add a divider after certain items if needed to match design groups */}
-              {item.label === "Bảng lương" && (
+              {item.label === "Trạng thái đơn nghỉ phép" && (
                 <View style={styles.dividerSmall} />
               )}
             </React.Fragment>
@@ -438,10 +428,6 @@ export default function RootLayout() {
           />
           <Drawer.Screen
             name="overtime"
-            options={{ headerShown: false, swipeEnabled: false }}
-          />
-          <Drawer.Screen
-            name="payroll"
             options={{ headerShown: false, swipeEnabled: false }}
           />
         </Drawer>

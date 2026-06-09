@@ -2,6 +2,7 @@ import React, { useRef } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
 import { useIsFocused, useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 
 import { FocusFrame } from "../components/FaceRegistration/FocusFrame";
 import { GuideOverlay } from "../components/FaceRegistration/GuideOverlay";
@@ -9,6 +10,7 @@ import { LoadingOverlay } from "../components/FaceRegistration/LoadingOverlay";
 import { useFaceRegistration } from "../hooks/useFaceRegistration";
 
 export default function FaceRegistrationScreen() {
+  const router = useRouter();
   const device = useCameraDevice("front");
   const { hasPermission, requestPermission } = useCameraPermission();
   const cameraRef = useRef<Camera>(null!);
@@ -60,14 +62,23 @@ export default function FaceRegistrationScreen() {
       />
 
       <View style={styles.overlay}>
-        <FocusFrame />
+        {/* Blue color theme for registration scan */}
+        <FocusFrame color="#3B82F6" />
 
         <GuideOverlay
-          stepText={step === "DONE" ? "Hoàn tất" : `Bước: ${capturedImages.length + 1}/3`}
+          step={step}
           statusMessage={statusMessage}
         />
 
         <LoadingOverlay isVisible={isProcessing} />
+
+        {/* Floating Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backText}>Quay lại</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -86,11 +97,11 @@ const styles = StyleSheet.create({
   },
   permissionButton: {
     padding: 15,
-    backgroundColor: "#00FF00",
+    backgroundColor: "#3B82F6",
     borderRadius: 10,
   },
   permissionText: {
-    color: "#000",
+    color: "#FFF",
     fontWeight: "bold",
   },
   overlay: {
@@ -98,4 +109,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-});
+  backButton: {
+    position: "absolute",
+    bottom: 50,
+    backgroundColor: "rgba(15, 23, 42, 0.7)",
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  backText: {
+    color: "#FFF",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+});
