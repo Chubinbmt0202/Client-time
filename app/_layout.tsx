@@ -143,7 +143,7 @@ function CustomDrawerContent(props: any) {
         />
       ),
       label: "Bảng lương",
-      route: "",
+      route: "/payroll",
     },
     {
       icon: <MaterialCommunityIcons name="briefcase-clock-outline" size={24} color={pathname === "/overtime" ? "#1C75FF" : "#475569"} />,
@@ -438,6 +438,10 @@ export default function RootLayout() {
           />
           <Drawer.Screen
             name="overtime"
+            options={{ headerShown: false, swipeEnabled: false }}
+          />
+          <Drawer.Screen
+            name="payroll"
             options={{ headerShown: false, swipeEnabled: false }}
           />
         </Drawer>

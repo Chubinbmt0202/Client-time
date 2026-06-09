@@ -96,8 +96,14 @@ export default function DashboardScreen() {
     checkOut: string | null;
   }>({ checkIn: null, checkOut: null });
 
+  const [otAttendance, setOtAttendance] = useState<{
+    checkIn: string | null;
+    checkOut: string | null;
+  }>({ checkIn: null, checkOut: null });
+
   const [refreshing, setRefreshing] = useState(false);
   const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
+  const [otRequests, setOtRequests] = useState<any[]>([]);
   const navigation = useNavigation();
   const router = useRouter();
 
@@ -128,13 +134,11 @@ export default function DashboardScreen() {
         // ==========================================
         const history = user.attendance_history;
         if (history && history.length > 0) {
-          // Lấy mốc thời gian hiện tại của điện thoại
           const today = new Date();
 
-          // Tìm record của ngày hôm nay bằng cách so sánh chính xác Ngày/Tháng/Năm
-          const todayRecord = history.find((record: { log_date: string | number | Date; }) => {
+          // Lọc các records của ngày hôm nay
+          const todayRecords = history.filter((record: any) => {
             const recordDate = new Date(record.log_date);
-
             return (
               recordDate.getDate() === today.getDate() &&
               recordDate.getMonth() === today.getMonth() &&
@@ -142,15 +146,58 @@ export default function DashboardScreen() {
             );
           });
 
-          // Nếu tìm thấy, đưa thẳng vào state để UI bên dưới hiển thị
-          if (todayRecord) {
+          // Phân loại: ca thường và ca tăng ca
+          let normalRecord = null;
+          let otRecord = null;
+
+          if (todayRecords.length === 1) {
+            const rec = todayRecords[0];
+            const checkInDate = rec.check_in_time ? new Date(rec.check_in_time) : null;
+            const hour = checkInDate ? checkInDate.getHours() : 0;
+            // Nếu giờ vào ca > 16 (tức là sau 16:00), hoặc ghi chú có chứa chữ "tăng ca" / "OT"
+            if (hour >= 16 || (rec.note && (rec.note.toLowerCase().includes("tăng ca") || rec.note.toLowerCase().includes("ot")))) {
+              otRecord = rec;
+            } else {
+              normalRecord = rec;
+            }
+          } else if (todayRecords.length >= 2) {
+            // Sắp xếp theo giờ vào tăng dần
+            todayRecords.sort((a: any, b: any) => new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime());
+            normalRecord = todayRecords[0];
+            otRecord = todayRecords[1];
+          }
+
+          if (normalRecord) {
             setAttendance({
-              checkIn: todayRecord.check_in_time,
-              checkOut: todayRecord.check_out_time
+              checkIn: normalRecord.check_in_time,
+              checkOut: normalRecord.check_out_time
             });
           } else {
             setAttendance({ checkIn: null, checkOut: null });
           }
+
+          if (otRecord) {
+            setOtAttendance({
+              checkIn: otRecord.check_in_time,
+              checkOut: otRecord.check_out_time
+            });
+          } else {
+            setOtAttendance({ checkIn: null, checkOut: null });
+          }
+        }
+
+
+        // ==========================================
+        // 🚀 LẤY DỮ LIỆU ĐĂNG KÝ TĂNG CA (OT) TỪ BACKEND
+        // ==========================================
+        try {
+          const otResponse = await fetch(API_ENDPOINTS.OT_HISTORY(userProfile.id));
+          const otResult = await otResponse.json();
+          if (otResult.success) {
+            setOtRequests(otResult.data || []);
+          }
+        } catch (otErr) {
+          console.error("Lỗi khi tải lịch sử tăng ca:", otErr);
         }
       }
 
@@ -370,10 +417,63 @@ export default function DashboardScreen() {
     }
   };
 
+  const parseTimeToMinutes = (timeStr: string) => {
+    if (!timeStr) return 0;
+    const parts = timeStr.split(":");
+    const hours = parseInt(parts[0], 10) || 0;
+    const minutes = parseInt(parts[1], 10) || 0;
+    return hours * 60 + minutes;
+  };
+
+  const checkIsWithinOTWindow = (ot: any, now: Date) => {
+    if (ot.trang_thai !== 'DA_DUYET') return false;
+
+    // So sánh ngày tăng ca
+    const otDate = new Date(ot.ngay_dang_ky_ot);
+    const isSameDay = (d1: Date, d2: Date) => (
+      d1.getDate() === d2.getDate() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getFullYear() === d2.getFullYear()
+    );
+
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const otStartMinutes = parseTimeToMinutes(ot.gio_bat_dau);
+    const rawEndMinutes = parseTimeToMinutes(ot.gio_ket_thuc_du_kien);
+    const isOvernight = rawEndMinutes <= otStartMinutes;
+    const otEndMinutes = isOvernight ? rawEndMinutes + 1440 : rawEndMinutes;
+
+    const currentMinutesFromMidnight = now.getHours() * 60 + now.getMinutes();
+
+    // Trường hợp 1: Chấm công trong cùng ngày đăng ký tăng ca
+    if (isSameDay(now, otDate)) {
+      // Cho phép check-in sớm tối đa 30 phút, đến hết thời gian ca OT (hoặc hết ngày nếu qua đêm)
+      const allowedStart = otStartMinutes - 30;
+      const allowedEnd = isOvernight ? 1440 : otEndMinutes;
+      return currentMinutesFromMidnight >= allowedStart && currentMinutesFromMidnight <= allowedEnd;
+    }
+
+    // Trường hợp 2: Chấm công sau nửa đêm (ngày tiếp theo) cho ca tăng ca qua đêm của ngày hôm trước
+    if (isSameDay(yesterday, otDate) && isOvernight) {
+      // Cho phép check-in từ 00:00 (0 phút) đến gio_ket_thuc_du_kien
+      return currentMinutesFromMidnight >= 0 && currentMinutesFromMidnight <= rawEndMinutes;
+    }
+
+    return false;
+  };
+
   const handleCheckInPress = () => {
     const now = new Date();
     const currentHours = now.getHours();
     const currentMinutes = now.getMinutes();
+
+    // 🚀 KIỂM TRA ĐƠN TĂNG CA ĐƯỢC PHÊ DUYỆT
+    const hasValidOT = otRequests.some(ot => checkIsWithinOTWindow(ot, now));
+
+    if (hasValidOT) {
+      router.push("/face-check-in");
+      return;
+    }
 
     // Giới hạn thời gian chấm công sớm: Không được chấm công trước quá 1 tiếng (trước 7:00)
     const isTooEarly = currentHours < (SHIFT_START_HOURS - 1);
@@ -404,6 +504,21 @@ export default function DashboardScreen() {
 
     router.push("/face-check-in");
   };
+
+  const now = new Date();
+  const isCurrentlyOt = otRequests.some(ot => checkIsWithinOTWindow(ot, now));
+  const hasApprovedOtToday = otRequests.some(ot => {
+    if (ot.trang_thai !== 'DA_DUYET') return false;
+    const otDate = new Date(ot.ngay_dang_ky_ot);
+    return otDate.getDate() === now.getDate() &&
+           otDate.getMonth() === now.getMonth() &&
+           otDate.getFullYear() === now.getFullYear();
+  });
+
+  const checkInBtnDisabled = isCurrentlyOt ? !!otAttendance.checkIn : !!attendance.checkIn;
+  const checkOutBtnDisabled = isCurrentlyOt 
+    ? (!otAttendance.checkIn || !!otAttendance.checkOut)
+    : (!attendance.checkIn || !!attendance.checkOut);
 
   const days = [
     "CHỦ NHẬT",
@@ -565,18 +680,18 @@ export default function DashboardScreen() {
               <TouchableOpacity
                 style={[
                   styles.attendanceButton,
-                  attendance.checkIn ? styles.disabledAttendanceBtn : styles.checkInBtn
+                  checkInBtnDisabled ? styles.disabledAttendanceBtn : styles.checkInBtn
                 ]}
                 onPress={handleCheckInPress}
-                disabled={!!attendance.checkIn}
+                disabled={checkInBtnDisabled}
               >
                 <MaterialCommunityIcons
                   name="login"
                   size={24}
-                  color={attendance.checkIn ? "#94A3B8" : "#FFFFFF"}
+                  color={checkInBtnDisabled ? "#94A3B8" : "#FFFFFF"}
                 />
-                <Text style={[styles.attendanceBtnText, attendance.checkIn && styles.disabledBtnText]}>
-                  Vào ca
+                <Text style={[styles.attendanceBtnText, checkInBtnDisabled && styles.disabledBtnText]}>
+                  {isCurrentlyOt ? "Vào tăng ca" : "Vào ca"}
                 </Text>
               </TouchableOpacity>
 
@@ -584,18 +699,18 @@ export default function DashboardScreen() {
               <TouchableOpacity
                 style={[
                   styles.attendanceButton,
-                  (attendance.checkIn && !attendance.checkOut) ? styles.checkOutBtn : styles.disabledAttendanceBtn
+                  !checkOutBtnDisabled ? styles.checkOutBtn : styles.disabledAttendanceBtn
                 ]}
                 onPress={() => router.push("/face-check-out")}
-                disabled={!attendance.checkIn || !!attendance.checkOut}
+                disabled={checkOutBtnDisabled}
               >
                 <MaterialCommunityIcons
                   name="logout"
                   size={24}
-                  color={(attendance.checkIn && !attendance.checkOut) ? "#FFFFFF" : "#94A3B8"}
+                  color={!checkOutBtnDisabled ? "#FFFFFF" : "#94A3B8"}
                 />
-                <Text style={[styles.attendanceBtnText, !(attendance.checkIn && !attendance.checkOut) && styles.disabledBtnText]}>
-                  Ra ca
+                <Text style={[styles.attendanceBtnText, checkOutBtnDisabled && styles.disabledBtnText]}>
+                  {isCurrentlyOt ? "Ra tăng ca" : "Ra ca"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -692,6 +807,76 @@ export default function DashboardScreen() {
                 </Text>
               </View>
             </View>
+
+            {/* Overtime Today's Status */}
+            {hasApprovedOtToday && (
+              <>
+                <View style={[styles.sectionHeader, { marginTop: 16 }]}>
+                  <Text style={styles.sectionTitle}>Trạng thái tăng ca hôm nay</Text>
+                </View>
+                <View style={styles.statusCardsContainer}>
+                  <View
+                    style={[
+                      styles.statusCard,
+                      otAttendance.checkIn ? styles.statusCardIn : styles.statusCardOut,
+                    ]}
+                  >
+                    <View style={styles.statusCardHeader}>
+                      <Ionicons
+                        name="enter-outline"
+                        size={20}
+                        color={otAttendance.checkIn ? "#16A34A" : "#64748B"}
+                      />
+                      <Text
+                        style={otAttendance.checkIn ? styles.statusCardTitleIn : styles.statusCardTitleOut}
+                      >
+                        Vào tăng ca
+                      </Text>
+                    </View>
+                    <Text
+                      style={otAttendance.checkIn ? styles.statusTime : styles.statusTimeEmpty}
+                    >
+                      {formatAttendanceTime(otAttendance.checkIn)}
+                    </Text>
+                    <Text
+                      style={otAttendance.checkIn ? styles.statusSubtitleIn : styles.statusSubtitleOut}
+                    >
+                      {otAttendance.checkIn ? "Đúng giờ" : "Chưa chấm"}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.statusCard,
+                      otAttendance.checkOut ? styles.statusCardIn : styles.statusCardOut,
+                    ]}
+                  >
+                    <View style={styles.statusCardHeader}>
+                      <Ionicons
+                        name="exit-outline"
+                        size={20}
+                        color={otAttendance.checkOut ? "#16A34A" : "#64748B"}
+                      />
+                      <Text
+                        style={otAttendance.checkOut ? styles.statusCardTitleIn : styles.statusCardTitleOut}
+                      >
+                        Ra tăng ca
+                      </Text>
+                    </View>
+                    <Text
+                      style={otAttendance.checkOut ? styles.statusTime : styles.statusTimeEmpty}
+                    >
+                      {formatAttendanceTime(otAttendance.checkOut)}
+                    </Text>
+                    <Text
+                      style={otAttendance.checkOut ? styles.statusSubtitleIn : styles.statusSubtitleOut}
+                    >
+                      {otAttendance.checkOut ? "Hoàn thành" : "Chưa chấm"}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
 
             {/* Notifications */}
             <View style={styles.sectionHeader}>

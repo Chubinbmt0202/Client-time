@@ -1,4 +1,4 @@
-const BASE_URL_IP_100 = "http://100.118.113.81:3001"
+const BASE_URL_IP_100 = "http://100.77.76.20:3001"
 
 export const API_ENDPOINTS = {
   LOGIN: `${BASE_URL_IP_100}/api/auth/login`,
@@ -15,6 +15,7 @@ export const API_ENDPOINTS = {
   DELETE_NOTIFICATION: (id: string) => `${BASE_URL_IP_100}/api/notifications/delete/${id}`,
   UPDATE_FCM_TOKEN: `${BASE_URL_IP_100}/api/employees/fcm-token`,
   CREATE_OT: `${BASE_URL_IP_100}/api/ot/create`,
+  OT_HISTORY: (employeeId: string) => `${BASE_URL_IP_100}/api/ot/history/${employeeId}`,
 };
 
 export default {

@@ -23,6 +23,12 @@ interface AttendanceRecord {
   checkIn: string | null;
   checkOut: string | null;
   status: string;
+  hasOt?: boolean;
+  otStartTime?: string | null;
+  otExpectedEndTime?: string | null;
+  otStatus?: string | null;
+  otCheckIn?: string | null;
+  otCheckOut?: string | null;
 }
 
 export default function HistoryScreen() {
@@ -59,7 +65,13 @@ export default function HistoryScreen() {
             date: item.log_date,
             checkIn: item.check_in_time,
             checkOut: item.check_out_time,
-            status: item.status
+            status: item.status,
+            hasOt: item.has_ot,
+            otStartTime: item.ot_start_time,
+            otExpectedEndTime: item.ot_expected_end_time,
+            otStatus: item.ot_status,
+            otCheckIn: item.ot_check_in_time,
+            otCheckOut: item.ot_check_out_time
           }));
           setHistory(records);
         }
@@ -166,6 +178,32 @@ export default function HistoryScreen() {
             <Text style={[styles.timeValue, { color: checkOutColor }]}>{formatTime(item.checkOut)}</Text>
           </View>
         </View>
+
+        {item.hasOt && (
+          <View style={styles.otContainer}>
+            <View style={styles.otHeaderRow}>
+              <Ionicons name="time-outline" size={16} color="#4F46E5" style={{ marginRight: 6 }} />
+              <Text style={styles.otTitle}>
+                Tăng ca: {item.otStartTime?.substring(0, 5)} - {item.otExpectedEndTime?.substring(0, 5)}
+              </Text>
+              <Text style={[styles.otStatusText, { color: item.otStatus === 'DA_DUYET' ? '#10B981' : item.otStatus === 'CHO_DUYET' ? '#F59E0B' : '#EF4444' }]}>
+                {item.otStatus === 'DA_DUYET' ? 'Đã duyệt' : item.otStatus === 'CHO_DUYET' ? 'Chờ duyệt' : 'Từ chối'}
+              </Text>
+            </View>
+            {item.otStatus === 'DA_DUYET' && (
+              <View style={[styles.timeInfoRow, { marginTop: 10 }]}>
+                <View style={styles.timeInfoBlock}>
+                  <Text style={styles.timeLabel}>Vào tăng ca</Text>
+                  <Text style={styles.timeValue}>{formatTime(item.otCheckIn ?? null)}</Text>
+                </View>
+                <View style={styles.timeInfoBlock}>
+                  <Text style={styles.timeLabel}>Ra tăng ca</Text>
+                  <Text style={styles.timeValue}>{formatTime(item.otCheckOut ?? null)}</Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
       </View>
     );
   };
@@ -381,5 +419,28 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: "#94A3B8",
+  },
+  otContainer: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+    borderStyle: "dashed",
+  },
+  otHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  otTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#4F46E5",
+    flex: 1,
+  },
+  otStatusText: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
 });
