@@ -1,4 +1,4 @@
-const BASE_URL_IP_100 = "http://100.77.76.20:3001"
+const BASE_URL_IP_100 = "http://192.168.2.35:3001"
 
 export const API_ENDPOINTS = {
   LOGIN: `${BASE_URL_IP_100}/api/auth/login`,
@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
   OT_HISTORY: (employeeId: string) => `${BASE_URL_IP_100}/api/ot/history/${employeeId}`,
   UPDATE_PROFILE: (id: string) => `${BASE_URL_IP_100}/api/employees/update/${id}`,
   CHANGE_PASSWORD: (id: string) => `${BASE_URL_IP_100}/api/employees/change-password/${id}`,
+  GET_ALL_SHIFTS: `${BASE_URL_IP_100}/api/shifts/getAllShifts`,
 };
 
 export default {

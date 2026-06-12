@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useIsFocused, useFocusEffect } from "@react-navigation/native";
 import * as Location from 'expo-location';
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -29,6 +29,7 @@ import { FocusFrame } from "../components/FaceRegistration/FocusFrame";
 
 export default function CheckInScreen() {
   const router = useRouter();
+  const { lateReason } = useLocalSearchParams();
   const device = useCameraDevice("front");
   const { hasPermission, requestPermission } = useCameraPermission();
   const cameraRef = useRef<Camera>(null!);
@@ -182,14 +183,15 @@ export default function CheckInScreen() {
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Gửi { userId, url, intent: "check-in" }
+        // Gửi { userId, url, intent: "check-in", lateReason }
         body: JSON.stringify({
           userId: userId,
           url: cloudUrl,
           intent: "check-in",
           action: "check_in",
           timestamp: new Date().toISOString(),
-          evidence: evidence
+          evidence: evidence,
+          lateReason: lateReason
         }),
       });
 

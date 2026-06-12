@@ -29,6 +29,8 @@ interface AttendanceRecord {
   otStatus?: string | null;
   otCheckIn?: string | null;
   otCheckOut?: string | null;
+  urlAnhVao?: string | null;
+  urlAnhRa?: string | null;
 }
 
 export default function HistoryScreen() {
@@ -71,7 +73,9 @@ export default function HistoryScreen() {
             otExpectedEndTime: item.ot_expected_end_time,
             otStatus: item.ot_status,
             otCheckIn: item.ot_check_in_time,
-            otCheckOut: item.ot_check_out_time
+            otCheckOut: item.ot_check_out_time,
+            urlAnhVao: item.url_anh_vao,
+            urlAnhRa: item.url_anh_ra
           }));
           setHistory(records);
         }
@@ -171,11 +175,17 @@ export default function HistoryScreen() {
           <View style={styles.timeInfoBlock}>
             <Text style={styles.timeLabel}>Giờ vào</Text>
             <Text style={[styles.timeValue, { color: checkInColor }]}>{formatTime(item.checkIn)}</Text>
+            {item.urlAnhVao && (
+              <Image source={{ uri: item.urlAnhVao }} style={styles.proofImage} />
+            )}
           </View>
           
           <View style={styles.timeInfoBlock}>
             <Text style={styles.timeLabel}>Giờ ra</Text>
             <Text style={[styles.timeValue, { color: checkOutColor }]}>{formatTime(item.checkOut)}</Text>
+            {item.urlAnhRa && (
+              <Image source={{ uri: item.urlAnhRa }} style={styles.proofImage} />
+            )}
           </View>
         </View>
 
@@ -442,5 +452,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
+  },
+  proofImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginTop: 8,
   },
 });

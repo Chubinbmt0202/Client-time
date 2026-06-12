@@ -9,7 +9,7 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { onValue, ref, query, limitToLast, orderByChild } from "firebase/database";
+import { limitToLast, onValue, orderByChild, query, ref } from "firebase/database";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -21,15 +21,15 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Modal,
+  TextInput,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { API_ENDPOINTS } from "../../constants/api";
 import { database } from "../../utils/firebase";
 
-const SHIFT_START_HOURS = 8;
-const SHIFT_START_MINUTES = 0;
-const SHIFT_END_HOURS = 17;
-const SHIFT_END_MINUTES = 0;
 
 // Cấu hình cách hiển thị thông báo khi ứng dụng đang mở (Foreground)
 Notifications.setNotificationHandler({
@@ -81,7 +81,14 @@ async function registerForPushNotificationsAsync() {
 
 export default function DashboardScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showLateModal, setShowLateModal] = useState(false);
+  const [lateReason, setLateReason] = useState("");
   const [isFaceUpdated, setIsFaceUpdated] = useState(false);
+  const [shiftStartHours, setShiftStartHours] = useState(8);
+  const [shiftStartMinutes, setShiftStartMinutes] = useState(0);
+  const [shiftEndHours, setShiftEndHours] = useState(17);
+  const [shiftEndMinutes, setShiftEndMinutes] = useState(0);
+  const [shiftLateTolerance, setShiftLateTolerance] = useState(15);
   const [profile, setProfile] = useState<{
     name: string;
     id: string;
@@ -198,6 +205,32 @@ export default function DashboardScreen() {
           }
         } catch (otErr) {
           console.error("Lỗi khi tải lịch sử tăng ca:", otErr);
+        }
+
+        // ==========================================
+        // 🚀 LẤY CẤU HÌNH CA LÀM VIỆC TỪ BACKEND
+        // ==========================================
+        try {
+          const shiftResponse = await fetch(API_ENDPOINTS.GET_ALL_SHIFTS);
+          const shiftResult = await shiftResponse.json();
+          if (shiftResult.success && shiftResult.data && shiftResult.data.length > 0) {
+            const shift = shiftResult.data[0];
+            if (shift.start_time) {
+              const [sh, sm] = shift.start_time.split(":");
+              setShiftStartHours(parseInt(sh, 10));
+              setShiftStartMinutes(parseInt(sm, 10));
+            }
+            if (shift.end_time) {
+              const [eh, em] = shift.end_time.split(":");
+              setShiftEndHours(parseInt(eh, 10));
+              setShiftEndMinutes(parseInt(em, 10));
+            }
+            if (shift.late_tolerance_mins !== undefined) {
+              setShiftLateTolerance(parseInt(shift.late_tolerance_mins, 10) || 0);
+            }
+          }
+        } catch (shiftErr) {
+          console.error("Lỗi khi tải cấu hình ca làm việc:", shiftErr);
         }
       }
 
@@ -365,6 +398,13 @@ export default function DashboardScreen() {
   const formatTime = (value: number) =>
     value < 10 ? `0${value}` : value.toString();
 
+  const getLateLimitStr = () => {
+    const d = new Date();
+    d.setHours(shiftStartHours);
+    d.setMinutes(shiftStartMinutes + shiftLateTolerance);
+    return `${formatTime(d.getHours())}:${formatTime(d.getMinutes())}`;
+  };
+
   const formatAttendanceTime = (isoString: string | null) => {
     if (!isoString) return "--:--";
     try {
@@ -387,12 +427,12 @@ export default function DashboardScreen() {
       const checkInMinutes = checkInDate.getMinutes();
 
       if (
-        checkInHours > SHIFT_START_HOURS ||
-        (checkInHours === SHIFT_START_HOURS && checkInMinutes > SHIFT_START_MINUTES)
+        checkInHours > shiftStartHours ||
+        (checkInHours === shiftStartHours && checkInMinutes > shiftStartMinutes)
       ) {
         const lateMinutes =
-          (checkInHours - SHIFT_START_HOURS) * 60 +
-          (checkInMinutes - SHIFT_START_MINUTES);
+          (checkInHours - shiftStartHours) * 60 +
+          (checkInMinutes - shiftStartMinutes);
         return `Đi trễ (${lateMinutes} phút)`;
       }
       return "Đúng giờ";
@@ -409,8 +449,8 @@ export default function DashboardScreen() {
       const checkInMinutes = checkInDate.getMinutes();
 
       return (
-        checkInHours > SHIFT_START_HOURS ||
-        (checkInHours === SHIFT_START_HOURS && checkInMinutes > SHIFT_START_MINUTES)
+        checkInHours > shiftStartHours ||
+        (checkInHours === shiftStartHours && checkInMinutes > shiftStartMinutes)
       );
     } catch (e) {
       return false;
@@ -476,33 +516,61 @@ export default function DashboardScreen() {
     }
 
     // Giới hạn thời gian chấm công sớm: Không được chấm công trước quá 1 tiếng (trước 7:00)
-    const isTooEarly = currentHours < (SHIFT_START_HOURS - 1);
+    const isTooEarly = currentHours < (shiftStartHours - 1);
 
     if (isTooEarly) {
       Alert.alert(
         "Không thể vào ca",
-        "Chưa tới ca làm việc. Bạn chỉ được phép chấm công sớm tối đa 1 tiếng trước khi vào ca.",
+        `Chưa tới ca làm việc. Bạn chỉ được phép chấm công sớm tối đa 1 tiếng trước khi vào ca.`,
         [{ text: "Đã hiểu", style: "cancel" }]
       );
       return;
     }
 
-    // Giới hạn thời gian chấm công vào ca: Không được chấm công sau 8:30 (quá 30 phút)
-    const isAfterLateLimit =
-      currentHours > SHIFT_START_HOURS ||
-      (currentHours === SHIFT_START_HOURS && currentMinutes > 30);
-    
-    // Nếu muộn hơn 8:30 hoặc đã qua giờ hành chính thì chặn
-    if (isAfterLateLimit) {
+    // 1. Sau ca hành chính 1 tiếng thì không check in vào ca được mà phải đăng ký OT
+    const isAfterShiftEndPlus1Hour = 
+      currentHours > (shiftEndHours + 1) || 
+      (currentHours === (shiftEndHours + 1) && currentMinutes >= shiftEndMinutes);
+
+    if (isAfterShiftEndPlus1Hour) {
       Alert.alert(
         "Không thể vào ca",
-        "Hiện tại không nằm trong thời gian làm việc (bạn đã vào ca trễ quá 30 phút). Nếu bạn muốn làm việc giờ này, vui lòng đăng ký tăng ca.",
+        "Đã quá giờ ca hành chính 1 tiếng. Bạn không thể check-in vào ca này được nữa mà phải đăng ký OT.",
         [{ text: "Đã hiểu", style: "cancel" }]
       );
+      return;
+    }
+
+    // 2. Nếu như trong ca hành chính mà đi muộn hơn số phút cho phép thì cần phải giải trình cho hr
+    const limitDate = new Date();
+    limitDate.setHours(shiftStartHours);
+    limitDate.setMinutes(shiftStartMinutes + shiftLateTolerance);
+    
+    const currentTotalMinutes = currentHours * 60 + currentMinutes;
+    const limitTotalMinutes = limitDate.getHours() * 60 + limitDate.getMinutes();
+
+    const isAfterLateLimit = currentTotalMinutes > limitTotalMinutes;
+
+    // Nếu muộn hơn 8:15 thì hiển thị modal giải trình đi trễ
+    if (isAfterLateLimit) {
+      setLateReason("");
+      setShowLateModal(true);
       return;
     }
 
     router.push("/face-check-in");
+  };
+
+  const handleLateSubmit = () => {
+    if (!lateReason.trim()) {
+      Alert.alert("Lỗi", "Vui lòng nhập lý do giải trình đi trễ.");
+      return;
+    }
+    setShowLateModal(false);
+    router.push({
+      pathname: "/face-check-in",
+      params: { lateReason: lateReason.trim() }
+    });
   };
 
   const now = new Date();
@@ -511,12 +579,12 @@ export default function DashboardScreen() {
     if (ot.trang_thai !== 'DA_DUYET') return false;
     const otDate = new Date(ot.ngay_dang_ky_ot);
     return otDate.getDate() === now.getDate() &&
-           otDate.getMonth() === now.getMonth() &&
-           otDate.getFullYear() === now.getFullYear();
+      otDate.getMonth() === now.getMonth() &&
+      otDate.getFullYear() === now.getFullYear();
   });
 
   const checkInBtnDisabled = isCurrentlyOt ? !!otAttendance.checkIn : !!attendance.checkIn;
-  const checkOutBtnDisabled = isCurrentlyOt 
+  const checkOutBtnDisabled = isCurrentlyOt
     ? (!otAttendance.checkIn || !!otAttendance.checkOut)
     : (!attendance.checkIn || !!attendance.checkOut);
 
@@ -955,6 +1023,59 @@ export default function DashboardScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Modal Giải trình đi trễ */}
+      <Modal
+        visible={showLateModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowLateModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <View style={styles.modalIconWrapper}>
+                  <MaterialCommunityIcons name="clock-alert-outline" size={28} color="#EF4444" />
+                </View>
+                <Text style={styles.modalTitle}>Giải trình đi trễ</Text>
+                <Text style={styles.modalSubtitle}>
+                  Bạn đã vào ca trễ quá giờ quy định ({getLateLimitStr()}). Vui lòng nhập lý do giải trình để tiếp tục chấm công.
+                </Text>
+              </View>
+
+              <View style={styles.modalBody}>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Nhập lý do đi trễ của bạn (ví dụ: Kẹt xe, Hỏng xe...)"
+                  placeholderTextColor="#94A3B8"
+                  value={lateReason}
+                  onChangeText={setLateReason}
+                  multiline={true}
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonCancel]}
+                  onPress={() => setShowLateModal(false)}
+                >
+                  <Text style={styles.modalButtonTextCancel}>Huỷ bỏ</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonSubmit]}
+                  onPress={handleLateSubmit}
+                >
+                  <Text style={styles.modalButtonTextSubmit}>Chấm công</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1369,6 +1490,91 @@ const styles = StyleSheet.create({
   },
   disabledButtonText: {
     color: "#94A3B8", // Slate-400
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    width: "100%",
+    maxWidth: 400,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  modalHeader: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalIconWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#FEF2F2",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  modalBody: {
+    marginBottom: 24,
+  },
+  modalInput: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    color: "#0F172A",
+    height: 100,
+  },
+  modalFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  modalButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalButtonCancel: {
+    backgroundColor: "#F1F5F9",
+    marginRight: 12,
+  },
+  modalButtonTextCancel: {
+    color: "#475569",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  modalButtonSubmit: {
+    backgroundColor: "#1C75FF",
+  },
+  modalButtonTextSubmit: {
+    color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "600",
   },
