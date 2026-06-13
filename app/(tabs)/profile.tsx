@@ -1,24 +1,24 @@
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
-import { API_ENDPOINTS } from "../../constants/api";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Switch,
-  KeyboardAvoidingView,
-  Platform,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { API_ENDPOINTS } from "../../constants/api";
 
 interface UserData {
   ho_va_ten?: string;
@@ -50,6 +50,9 @@ export default function ProfileScreen() {
   const [editAddress, setEditAddress] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editDob, setEditDob] = useState("");
+  const [editGender, setEditGender] = useState("");
+  const [showDobPicker, setShowDobPicker] = useState(false);
+  const [dobDate, setDobDate] = useState(new Date());
 
   // Form states cho đổi mật khẩu
   const [oldPassword, setOldPassword] = useState("");
@@ -68,7 +71,14 @@ export default function ProfileScreen() {
         setEditPhone(parsed.so_dien_thoai || "0901234567");
         setEditAddress(parsed.dia_chi || "123 Nguyễn Văn Cừ, Quận 5, TP.HCM");
         setEditEmail(parsed.email || `${parsed.id_nhan_vien?.toLowerCase() || "nv001"}@company.com`);
-        setEditDob(parsed.ngay_sinh ? new Date(parsed.ngay_sinh).toLocaleDateString("vi-VN") : "15/05/1995");
+        if (parsed.ngay_sinh) {
+          const d = new Date(parsed.ngay_sinh);
+          setDobDate(d);
+          setEditDob(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`);
+        } else {
+          setEditDob("15/05/1995");
+        }
+        setEditGender(parsed.gioi_tinh || "Nam");
       }
     } catch (error) {
       console.error("Lỗi khi tải thông tin user:", error);
@@ -124,6 +134,8 @@ export default function ProfileScreen() {
           phone_number: editPhone.trim(),
           address: editAddress.trim(),
           email: editEmail.trim(),
+          date_of_birth: `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, "0")}-${String(dobDate.getDate()).padStart(2, "0")}`,
+          gender: editGender
         }),
       });
 
@@ -138,8 +150,10 @@ export default function ProfileScreen() {
           so_dien_thoai: result.data?.phone_number || editPhone.trim(),
           dia_chi: result.data?.address || editAddress.trim(),
           email: result.data?.email || editEmail.trim(),
+          ngay_sinh: result.data?.date_of_birth || `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, "0")}-${String(dobDate.getDate()).padStart(2, "0")}`,
+          gioi_tinh: result.data?.gender || editGender,
         };
-        
+
         await AsyncStorage.setItem("userData", JSON.stringify(updatedData));
         setUserData(updatedData);
         setModalType("none");
@@ -251,7 +265,7 @@ export default function ProfileScreen() {
               source={{ uri: userData?.hinh_anh || "https://randomuser.me/api/portraits/men/32.jpg" }}
               style={styles.avatar}
             />
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.editAvatarBtn}
               onPress={() => Alert.alert("Thông báo", "Tính năng thay đổi ảnh đại diện đang được phát triển.")}
             >
@@ -268,24 +282,6 @@ export default function ProfileScreen() {
             <Text style={styles.roleText}>
               {userData?.ten_vai_tro || userData?.role || "Nhân viên"}
             </Text>
-          </View>
-        </View>
-
-        {/* Stats Section */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>12</Text>
-            <Text style={styles.statLabel}>Ngày phép</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>100%</Text>
-            <Text style={styles.statLabel}>Chuyên cần</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>3</Text>
-            <Text style={styles.statLabel}>Khen thưởng</Text>
           </View>
         </View>
 
@@ -331,8 +327,8 @@ export default function ProfileScreen() {
         transparent={true}
         onRequestClose={() => setModalType("none")}
       >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"} 
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalOverlay}
         >
           <View style={styles.modalContent}>
@@ -367,11 +363,49 @@ export default function ProfileScreen() {
               />
 
               <Text style={styles.inputLabel}>Ngày sinh</Text>
-              <TextInput
-                style={[styles.textInput, styles.disabledInput]}
-                value={editDob}
-                editable={false}
-              />
+              <TouchableOpacity
+                style={styles.textInput}
+                onPress={() => setShowDobPicker(true)}
+              >
+                <Text style={{ color: "#0F172A", marginTop: 4 }}>{editDob}</Text>
+              </TouchableOpacity>
+              {showDobPicker && (
+                <DateTimePicker
+                  value={dobDate}
+                  mode="date"
+                  display="default"
+                  onChange={(event: any, selectedDate?: Date) => {
+                    setShowDobPicker(false);
+                    if (selectedDate) {
+                      setDobDate(selectedDate);
+                      setEditDob(`${String(selectedDate.getDate()).padStart(2, "0")}/${String(selectedDate.getMonth() + 1).padStart(2, "0")}/${selectedDate.getFullYear()}`);
+                    }
+                  }}
+                />
+              )}
+
+              <Text style={styles.inputLabel}>Giới tính</Text>
+              <View style={styles.genderContainer}>
+                {["Nam", "Nữ", "Khác"].map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[
+                      styles.genderOption,
+                      editGender === g && styles.genderOptionSelected,
+                    ]}
+                    onPress={() => setEditGender(g)}
+                  >
+                    <Text
+                      style={[
+                        styles.genderText,
+                        editGender === g && styles.genderTextSelected,
+                      ]}
+                    >
+                      {g}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
               <Text style={styles.inputLabel}>Số điện thoại</Text>
               <TextInput
@@ -404,15 +438,15 @@ export default function ProfileScreen() {
             </ScrollView>
 
             <View style={styles.modalFooter}>
-              <TouchableOpacity 
-                style={[styles.btnSecondary, { flex: 1 }]} 
+              <TouchableOpacity
+                style={[styles.btnSecondary, { flex: 1 }]}
                 onPress={() => setModalType("none")}
               >
                 <Text style={styles.btnSecondaryText}>Hủy</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.btnPrimary, { flex: 1, marginLeft: 12 }]} 
+
+              <TouchableOpacity
+                style={[styles.btnPrimary, { flex: 1, marginLeft: 12 }]}
                 onPress={handleSavePersonalInfo}
               >
                 <Text style={styles.btnPrimaryText}>Lưu thay đổi</Text>
@@ -431,8 +465,8 @@ export default function ProfileScreen() {
         transparent={true}
         onRequestClose={() => setModalType("none")}
       >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"} 
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalOverlay}
         >
           <View style={styles.modalContent}>
@@ -473,15 +507,15 @@ export default function ProfileScreen() {
             </ScrollView>
 
             <View style={styles.modalFooter}>
-              <TouchableOpacity 
-                style={[styles.btnSecondary, { flex: 1 }]} 
+              <TouchableOpacity
+                style={[styles.btnSecondary, { flex: 1 }]}
                 onPress={() => setModalType("none")}
               >
                 <Text style={styles.btnSecondaryText}>Hủy</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.btnPrimary, { flex: 1, marginLeft: 12 }]} 
+
+              <TouchableOpacity
+                style={[styles.btnPrimary, { flex: 1, marginLeft: 12 }]}
                 onPress={handleUpdatePassword}
                 disabled={updatingPassword}
               >
@@ -525,7 +559,7 @@ export default function ProfileScreen() {
                   <Text style={styles.supportLabel}>Hotline Nhân sự:</Text>
                   <Text style={styles.supportValue}>1900 6868 (Ext 102)</Text>
                 </View>
-                
+
                 <View style={[styles.supportItem, { marginTop: 16 }]}>
                   <Ionicons name="mail-outline" size={20} color="#1C75FF" />
                   <Text style={styles.supportLabel}>Email Hỗ trợ:</Text>
@@ -545,8 +579,8 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.modalFooter}>
-              <TouchableOpacity 
-                style={[styles.btnPrimary, { width: "100%" }]} 
+              <TouchableOpacity
+                style={[styles.btnPrimary, { width: "100%" }]}
                 onPress={() => setModalType("none")}
               >
                 <Text style={styles.btnPrimaryText}>Đóng</Text>
@@ -578,10 +612,10 @@ export default function ProfileScreen() {
               <View style={styles.appLogoWrapper}>
                 <MaterialCommunityIcons name="face-recognition" size={60} color="#1C75FF" />
               </View>
-              
+
               <Text style={styles.appName}>FaceID Attendance Client</Text>
               <Text style={styles.appVersion}>Phiên bản 2.4.0 (Build 240609)</Text>
-              
+
               <View style={styles.infoBlockText}>
                 <Text style={styles.aboutParagraph}>
                   Hệ thống chấm công bằng khuôn mặt (FaceID) ứng dụng công nghệ AI trích xuất vector đặc trưng DeepFace. Giải pháp tích hợp nhận diện vị trí WiFi / GPS văn phòng, đăng ký nghỉ phép và tăng ca tự động đồng bộ thời gian thực.
@@ -593,8 +627,8 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.modalFooter}>
-              <TouchableOpacity 
-                style={[styles.btnPrimary, { width: "100%" }]} 
+              <TouchableOpacity
+                style={[styles.btnPrimary, { width: "100%" }]}
                 onPress={() => setModalType("none")}
               >
                 <Text style={styles.btnPrimaryText}>Đóng</Text>
@@ -972,5 +1006,32 @@ const styles = StyleSheet.create({
   infoBlockText: {
     paddingHorizontal: 10,
     marginTop: 12,
+  },
+  genderContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  genderOption: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 12,
+    marginHorizontal: 4,
+  },
+  genderOptionSelected: {
+    borderColor: "#1C75FF",
+    backgroundColor: "#EFF6FF",
+  },
+  genderText: {
+    fontSize: 14,
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  genderTextSelected: {
+    color: "#1C75FF",
+    fontWeight: "600",
   },
 });

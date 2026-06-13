@@ -71,8 +71,18 @@ export default function LeaveScreen() {
     }
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("vi-VN");
+  const formatApiDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatDisplayDate = (date: Date) => {
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
   const handleSubmit = async () => {
@@ -85,7 +95,13 @@ export default function LeaveScreen() {
         return;
       }
       const userData = JSON.parse(userDataStr);
-      const employeeId = userData.id_nhan_vien || "NV897728";
+      const employeeId = userData.id_nhan_vien || userData.id;
+      
+      if (!employeeId) {
+        Alert.alert("Lỗi", "Không tìm thấy mã nhân viên");
+        setLoading(false);
+        return;
+      }
 
       let cloudinaryUrl = null;
 
@@ -105,8 +121,8 @@ export default function LeaveScreen() {
       const leaveData = {
         id_nhan_vien: employeeId,
         leaveType: LEAVE_TYPES.find((t) => t.id === selectedType)?.label,
-        fromDate: formatDate(fromDate),
-        toDate: formatDate(toDate),
+        fromDate: formatApiDate(fromDate),
+        toDate: formatApiDate(toDate),
         totalDays: "Tạm tính",
         reason: reason || "Không có lý do",
         url_minh_chung: cloudinaryUrl, // Gửi link Cloudinary về backend
@@ -222,7 +238,7 @@ export default function LeaveScreen() {
                   >
                     <Ionicons name="calendar-outline" size={20} color="#1C75FF" />
                     <Text style={styles.dateDisplay}>
-                      {formatDate(fromDate)}
+                      {formatDisplayDate(fromDate)}
                     </Text>
                   </TouchableOpacity>
                   {showFromPicker && (
@@ -245,7 +261,7 @@ export default function LeaveScreen() {
                   >
                     <Ionicons name="calendar-outline" size={20} color="#1C75FF" />
                     <Text style={styles.dateDisplay}>
-                      {formatDate(toDate)}
+                      {formatDisplayDate(toDate)}
                     </Text>
                   </TouchableOpacity>
                   {showToPicker && (

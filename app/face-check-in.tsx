@@ -1,6 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useIsFocused, useFocusEffect } from "@react-navigation/native";
-import * as Location from 'expo-location';
 import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -11,7 +10,6 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { NetworkInfo } from 'react-native-network-info';
 import {
   Camera,
   useCameraDevice,
@@ -29,7 +27,7 @@ import { FocusFrame } from "../components/FaceRegistration/FocusFrame";
 
 export default function CheckInScreen() {
   const router = useRouter();
-  const { lateReason } = useLocalSearchParams();
+  const { lateReason, isOvertime } = useLocalSearchParams();
   const device = useCameraDevice("front");
   const { hasPermission, requestPermission } = useCameraPermission();
   const cameraRef = useRef<Camera>(null!);
@@ -39,15 +37,6 @@ export default function CheckInScreen() {
   const [statusMessage, setStatusMessage] = useState("Đang khởi động");
   const [isProcessing, setIsProcessing] = useState(false);
   const isCapturing = useRef(false);
-
-  useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Cấp quyền', 'Ứng dụng cần quyền vị trí để ghi nhận vị trí của bạn.');
-      }
-    })();
-  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -148,32 +137,6 @@ export default function CheckInScreen() {
 
       if (!cloudUrl) throw new Error("Không thể tải ảnh lên hệ thống");
 
-      // 5. Gather Wifi & GPS Evidence
-      setStatusMessage("Đang lấy thông tin vị trí...");
-      let evidence = {
-        wifi_bssid: "",
-        wifi_ssid: "",
-        lat: 0,
-        lng: 0
-      };
-
-      try {
-        const ssid = await NetworkInfo.getSSID();
-        const bssid = await NetworkInfo.getBSSID();
-        evidence.wifi_ssid = ssid || "";
-        evidence.wifi_bssid = bssid || "";
-      } catch (e) {
-        console.log("Không lấy được wifi", e);
-      }
-
-      try {
-        let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        evidence.lat = location.coords.latitude;
-        evidence.lng = location.coords.longitude;
-      } catch (e) {
-        console.log("Không lấy được vị trí", e);
-      }
-
       // 6. Gửi 1 URL lên Backend xác thực
       setStatusMessage("Đang xác thực khuôn mặt...");
       const startBackendTime = Date.now();
@@ -183,15 +146,15 @@ export default function CheckInScreen() {
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Gửi { userId, url, intent: "check-in", lateReason }
+        // Gửi { userId, url, intent: "check-in", lateReason, isOvertime }
         body: JSON.stringify({
           userId: userId,
           url: cloudUrl,
           intent: "check-in",
           action: "check_in",
           timestamp: new Date().toISOString(),
-          evidence: evidence,
-          lateReason: lateReason
+          lateReason: lateReason,
+          isOvertime: isOvertime
         }),
       });
 
@@ -226,6 +189,7 @@ export default function CheckInScreen() {
             log_date: data.data.time, // Lấy mốc thời gian này làm ngày log
             check_in_time: data.data.time,
             check_out_time: null,
+            note: isOvertime === "true" ? "Tăng ca" : "",
             status: "present"
           });
 

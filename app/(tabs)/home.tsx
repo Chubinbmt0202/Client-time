@@ -511,7 +511,10 @@ export default function DashboardScreen() {
     const hasValidOT = otRequests.some(ot => checkIsWithinOTWindow(ot, now));
 
     if (hasValidOT) {
-      router.push("/face-check-in");
+      router.push({
+        pathname: "/face-check-in",
+        params: { isOvertime: "true" }
+      });
       return;
     }
 
@@ -769,7 +772,10 @@ export default function DashboardScreen() {
                   styles.attendanceButton,
                   !checkOutBtnDisabled ? styles.checkOutBtn : styles.disabledAttendanceBtn
                 ]}
-                onPress={() => router.push("/face-check-out")}
+                onPress={() => router.push({
+                  pathname: "/face-check-out",
+                  params: { isOvertime: isCurrentlyOt ? "true" : "false" }
+                })}
                 disabled={checkOutBtnDisabled}
               >
                 <MaterialCommunityIcons

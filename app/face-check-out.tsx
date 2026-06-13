@@ -1,7 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Location from 'expo-location';
-import { NetworkInfo } from 'react-native-network-info';
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -29,6 +27,7 @@ import { FocusFrame } from "../components/FaceRegistration/FocusFrame";
 
 export default function CheckOutScreen() {
   const router = useRouter();
+  const { isOvertime } = useLocalSearchParams();
   const device = useCameraDevice("front");
   const { hasPermission, requestPermission } = useCameraPermission();
   const cameraRef = useRef<Camera>(null!);
@@ -38,15 +37,6 @@ export default function CheckOutScreen() {
   const [statusMessage, setStatusMessage] = useState("Đang khởi động");
   const [isProcessing, setIsProcessing] = useState(false);
   const isCapturing = useRef(false);
-
-  useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Cấp quyền', 'Ứng dụng cần quyền vị trí để ghi nhận wifi và gps.');
-      }
-    })();
-  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -147,32 +137,6 @@ export default function CheckOutScreen() {
 
       if (!cloudUrl) throw new Error("Không thể tải ảnh lên hệ thống");
 
-      // 5. Gather Wifi & GPS Evidence
-      setStatusMessage("Đang lấy thông vị trí...");
-      let evidence = {
-        wifi_bssid: "",
-        wifi_ssid: "",
-        lat: 0,
-        lng: 0
-      };
-
-      try {
-        const ssid = await NetworkInfo.getSSID();
-        const bssid = await NetworkInfo.getBSSID();
-        evidence.wifi_ssid = ssid || "";
-        evidence.wifi_bssid = bssid || "";
-      } catch (e) {
-        console.log("Không lấy được wifi", e);
-      }
-
-      try {
-        let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        evidence.lat = location.coords.latitude;
-        evidence.lng = location.coords.longitude;
-      } catch (e) {
-        console.log("Không lấy được vị trí", e);
-      }
-
       // 6. Gửi 1 URL lên Backend xác thực
       setStatusMessage("Đang xác thực khuôn mặt...");
       const startBackendTime = Date.now();
@@ -182,14 +146,14 @@ export default function CheckOutScreen() {
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Gửi { userId, url, intent: "check-out" }
+        // Gửi { userId, url, intent: "check-out", isOvertime }
         body: JSON.stringify({ 
           userId: userId, 
           url: cloudUrl, 
           intent: "check-out",
           action: "check_out",
           timestamp: new Date().toISOString(),
-          evidence: evidence
+          isOvertime: isOvertime
         }),
       });
 

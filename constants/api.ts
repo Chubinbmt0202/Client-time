@@ -1,4 +1,4 @@
-const BASE_URL_IP_100 = "http://192.168.2.35:3001"
+const BASE_URL_IP_100 = "http://192.168.10.100:3001"
 
 export const API_ENDPOINTS = {
   LOGIN: `${BASE_URL_IP_100}/api/auth/login`,
