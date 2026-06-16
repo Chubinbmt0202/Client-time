@@ -14,9 +14,11 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
 import { API_ENDPOINTS } from "../constants/api";
 import { database } from "../utils/firebase";
+import { CustomAlert, CustomAlertState } from "../components/CustomAlert";
 
 interface NotificationItem {
   id_thong_bao: string;
@@ -33,6 +35,12 @@ export default function NotificationsScreen() {
   const [isFaceUpdated, setIsFaceUpdated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [customAlert, setCustomAlert] = useState<CustomAlertState>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
   const router = useRouter();
 
   // Load employee ID from session
@@ -138,11 +146,25 @@ export default function NotificationsScreen() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        Alert.alert("Lỗi", data.message || "Không thể cập nhật trạng thái thông báo.");
+        setCustomAlert({
+          visible: true,
+          title: "Lỗi",
+          message: data.message || "Không thể cập nhật trạng thái thông báo.",
+          type: "error",
+          confirmText: "Đã hiểu",
+          onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+        });
       }
     } catch (error) {
       console.error("Lỗi đánh dấu đã đọc:", error);
-      Alert.alert("Lỗi kết nối", "Không thể kết nối tới server.");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi kết nối",
+        message: "Không thể kết nối tới server.",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
     }
   };
 
@@ -151,7 +173,14 @@ export default function NotificationsScreen() {
     if (notifications.length === 0) return;
     const hasUnread = notifications.some((n) => !n.da_doc);
     if (!hasUnread) {
-      Alert.alert("Thông báo", "Tất cả thông báo đã được đọc.");
+      setCustomAlert({
+        visible: true,
+        title: "Thông báo",
+        message: "Tất cả thông báo đã được đọc.",
+        type: "info",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
@@ -165,11 +194,25 @@ export default function NotificationsScreen() {
       if (res.ok && data.success) {
         console.log("Đã đánh dấu đọc tất cả!");
       } else {
-        Alert.alert("Lỗi", data.message || "Không thể cập nhật trạng thái.");
+        setCustomAlert({
+          visible: true,
+          title: "Lỗi",
+          message: data.message || "Không thể cập nhật trạng thái.",
+          type: "error",
+          confirmText: "Đã hiểu",
+          onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+        });
       }
     } catch (error) {
       console.error("Lỗi đánh dấu tất cả đã đọc:", error);
-      Alert.alert("Lỗi kết nối", "Không thể kết nối tới server.");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi kết nối",
+        message: "Không thể kết nối tới server.",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
     }
   };
 
@@ -206,22 +249,22 @@ export default function NotificationsScreen() {
     switch (type) {
       case "FACE_UPDATE":
         return {
-          icon: <MaterialCommunityIcons name="face-recognition" size={22} color="#1C75FF" />,
-          bgColor: "#EEF4FE",
+          icon: <MaterialCommunityIcons name="face-recognition" size={24} color="#0066FF" />,
+          bgColor: "#E5F0FF",
         };
       case "LEAVE":
         return {
-          icon: <Ionicons name="document-text-outline" size={22} color="#10B981" />,
-          bgColor: "#E6FBF3",
+          icon: <Ionicons name="document-text" size={24} color="#059669" />,
+          bgColor: "#D1FAE5",
         };
       case "ATTENDANCE":
         return {
-          icon: <Ionicons name="checkmark-circle-outline" size={22} color="#F59E0B" />,
-          bgColor: "#FEF7E6",
+          icon: <Ionicons name="checkmark-circle" size={24} color="#D97706" />,
+          bgColor: "#FEF3C7",
         };
       default:
         return {
-          icon: <Feather name="bell" size={20} color="#64748B" />,
+          icon: <Feather name="bell" size={24} color="#475569" />,
           bgColor: "#F1F5F9",
         };
     }
@@ -233,19 +276,24 @@ export default function NotificationsScreen() {
       <TouchableOpacity
         style={[styles.notiItem, !item.da_doc && styles.notiItemUnread]}
         onPress={() => handleMarkAsRead(item.id_thong_bao, item.da_doc)}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
       >
+        {/* Unread Indicator Glow */}
+        {!item.da_doc && <View style={styles.unreadIndicator} />}
+
         <View style={[styles.iconWrapper, { backgroundColor: config.bgColor }]}>
           {config.icon}
         </View>
+        
         <View style={styles.contentWrapper}>
           <View style={styles.headerRow}>
             <Text style={[styles.title, !item.da_doc && styles.titleUnread]} numberOfLines={1}>
               {item.tieu_de}
             </Text>
-            <Text style={styles.timeText}>{formatTime(item.ngay_tao)}</Text>
+            <Text style={[styles.timeText, !item.da_doc && styles.timeTextUnread]}>{formatTime(item.ngay_tao)}</Text>
           </View>
-          <Text style={styles.descText} numberOfLines={2}>
+          
+          <Text style={[styles.descText, !item.da_doc && styles.descTextUnread]} numberOfLines={2}>
             {item.noi_dung}
           </Text>
 
@@ -256,13 +304,12 @@ export default function NotificationsScreen() {
                 style={styles.markReadBtn}
                 onPress={() => handleMarkAsRead(item.id_thong_bao, item.da_doc)}
               >
-                <Feather name="check" size={14} color="#1C75FF" />
-                <Text style={styles.actionText}>Đọc</Text>
+                <Feather name="check" size={14} color="#FFFFFF" />
+                <Text style={styles.actionText}>Đánh dấu đã đọc</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
-        {!item.da_doc && <View style={styles.unreadDot} />}
       </TouchableOpacity>
     );
   };
@@ -271,39 +318,42 @@ export default function NotificationsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
 
-      {/* Custom Premium Header */}
+      {/* Premium Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={26} color="#0F172A" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thông báo</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={24} color="#0F172A" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Thông báo</Text>
+        </View>
         <TouchableOpacity style={styles.markAllButton} onPress={handleMarkAllAsRead}>
-          <Text style={styles.markAllText}>Đã xem tất cả</Text>
+          <Ionicons name="checkmark-done" size={18} color="#0066FF" />
+          <Text style={styles.markAllText}>Đã đọc tất cả</Text>
         </TouchableOpacity>
       </View>
 
       {/* Main Content */}
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#1C75FF" />
-          <Text style={styles.loadingText}>Đang tải thông báo...</Text>
+          <ActivityIndicator size="large" color="#0066FF" />
+          <Text style={styles.loadingText}>Đang tải thông báo mới nhất...</Text>
         </View>
       ) : notifications.length === 0 ? (
         <FlatList
           data={[]}
           renderItem={null}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1C75FF"]} />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#0066FF"]} />
           }
           contentContainerStyle={{ flexGrow: 1 }}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <View style={styles.emptyIconWrapper}>
-                <Feather name="bell-off" size={48} color="#94A3B8" />
+                <Ionicons name="notifications-off-outline" size={56} color="#94A3B8" />
               </View>
-              <Text style={styles.emptyTitle}>Không có thông báo nào</Text>
+              <Text style={styles.emptyTitle}>Chưa có thông báo nào</Text>
               <Text style={styles.emptyDesc}>
-                Tất cả thông báo của bạn từ quản trị viên và hệ thống sẽ xuất hiện tại đây.
+                Các thông báo về điểm danh, phép và hệ thống sẽ xuất hiện tại đây.
               </Text>
             </View>
           }
@@ -316,10 +366,11 @@ export default function NotificationsScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1C75FF"]} />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#0066FF"]} tintColor="#0066FF" />
           }
         />
       )}
+      <CustomAlert {...customAlert} />
     </SafeAreaView>
   );
 }
@@ -327,36 +378,57 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F4F7FA", // Softer, more premium background
   },
   header: {
-    marginTop: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? 44 : 20,
+    paddingBottom: 16,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "rgba(0,0,0,0.05)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 3,
+    zIndex: 10,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   backButton: {
-    padding: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F1F5F9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 22,
+    fontWeight: "800",
     color: "#0F172A",
+    letterSpacing: -0.5,
   },
   markAllButton: {
-    padding: 6,
-    backgroundColor: "#EEF2FF",
-    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#F0F5FF",
+    borderRadius: 20,
+    gap: 4,
   },
   markAllText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#1C75FF",
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0066FF",
   },
   centered: {
     flex: 1,
@@ -365,120 +437,151 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
+    marginTop: 16,
+    fontSize: 15,
+    fontWeight: "500",
     color: "#64748B",
   },
   listContent: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 40,
   },
   notiItem: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 12,
+    borderRadius: 24, // Larger border radius for modern feel
+    padding: 16,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "transparent",
+    // Premium shadow
     shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
     elevation: 2,
     position: "relative",
+    overflow: "hidden",
   },
   notiItemUnread: {
-    borderColor: "#BFDBFE",
-    backgroundColor: "#F8FAFF",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E5F0FF",
+    shadowColor: "#0066FF",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  unreadIndicator: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: "#0066FF",
+    borderTopLeftRadius: 24,
+    borderBottomLeftRadius: 24,
   },
   iconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: 16,
   },
   contentWrapper: {
     flex: 1,
+    justifyContent: "center",
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   title: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
-    color: "#334155",
+    color: "#475569",
     flex: 1,
     marginRight: 8,
   },
   titleUnread: {
-    color: "#1E293B",
-    fontWeight: "700",
+    color: "#0F172A",
+    fontWeight: "800",
   },
   timeText: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: "500",
     color: "#94A3B8",
   },
+  timeTextUnread: {
+    color: "#0066FF",
+    fontWeight: "600",
+  },
   descText: {
-    fontSize: 13,
+    fontSize: 14,
     color: "#64748B",
-    lineHeight: 18,
-    marginBottom: 10,
+    lineHeight: 20,
+    fontWeight: "400",
+  },
+  descTextUnread: {
+    color: "#334155",
+    fontWeight: "500",
   },
   actionFooter: {
+    marginTop: 12,
     flexDirection: "row",
-    gap: 16,
+    alignItems: "center",
   },
   markReadBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    backgroundColor: "#0066FF",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    gap: 6,
   },
   actionText: {
     fontSize: 12,
-    fontWeight: "600",
-    color: "#1C75FF",
-  },
-  unreadDot: {
-    position: "absolute",
-    top: 14,
-    right: 14,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#1C75FF",
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   emptyState: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 32,
-    paddingTop: 100,
+    paddingTop: 120,
   },
   emptyIconWrapper: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: "#F1F5F9",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
+    elevation: 2,
   },
   emptyTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#334155",
-    marginBottom: 8,
+    fontSize: 19,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 10,
   },
   emptyDesc: {
-    fontSize: 14,
+    fontSize: 15,
     color: "#64748B",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 22,
+    paddingHorizontal: 20,
   },
 });
+

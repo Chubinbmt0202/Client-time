@@ -9,7 +9,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { registerForPushNotificationsAsync, savePushTokenToBackend } from "../utils/notifications";
 import {
   ActivityIndicator,
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -22,6 +21,7 @@ import {
 } from "react-native";
 import { API_ENDPOINTS } from "../constants/api";
 import { styles } from "./index.styles";
+import { CustomAlert, CustomAlertState } from "../components/CustomAlert";
 
 export default function LoginScreen() {
   const [employeeId, setEmployeeId] = useState("");
@@ -31,9 +31,23 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
+  const [customAlert, setCustomAlert] = useState<CustomAlertState>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
+  const closeAlert = () => setCustomAlert((prev) => ({ ...prev, visible: false }));
+
   const handleLogin = async () => {
     if (!employeeId || !password) {
-      Alert.alert("Lỗi", "Vui lòng nhập Employee ID và Password");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Vui lòng nhập Employee ID và Password",
+        type: "error",
+        onConfirm: closeAlert
+      });
       return;
     }
 
@@ -112,18 +126,35 @@ export default function LoginScreen() {
           console.error("Lỗi đăng ký push token khi đăng nhập:", pushErr);
         }
 
-        Alert.alert("Thành công", "Đăng nhập thành công!");
-        // @ts-ignore
-        router.replace("/(tabs)/home");
+        setCustomAlert({
+          visible: true,
+          title: "Thành công",
+          message: "Đăng nhập thành công!",
+          type: "success",
+          onConfirm: () => {
+            closeAlert();
+            // @ts-ignore
+            router.replace("/(tabs)/home");
+          }
+        });
       } else {
-        Alert.alert(
-          "Đăng nhập thất bại",
-          loginData.message || "Kiểm tra lại thông tin đăng nhập",
-        );
+        setCustomAlert({
+          visible: true,
+          title: "Đăng nhập thất bại",
+          message: loginData.message || "Kiểm tra lại thông tin đăng nhập",
+          type: "error",
+          onConfirm: closeAlert
+        });
       }
     } catch (error) {
       console.error("Login Error:", error);
-      Alert.alert("Lỗi kết nối", "Không thể kết nối đến server");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi kết nối",
+        message: "Không thể kết nối đến server",
+        type: "error",
+        onConfirm: closeAlert
+      });
     } finally {
       setIsLoading(false);
     }
@@ -250,6 +281,7 @@ export default function LoginScreen() {
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+      <CustomAlert {...customAlert} />
     </SafeAreaView>
   );
 }

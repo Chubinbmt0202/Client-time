@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -18,9 +17,11 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CustomAlert, CustomAlertState } from "../../components/CustomAlert";
 import { API_ENDPOINTS } from "../../constants/api";
 
 interface UserData {
+  gioi_tinh: string;
   ho_va_ten?: string;
   full_name?: string;
   id_nhan_vien?: string;
@@ -40,6 +41,9 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [customAlert, setCustomAlert] = useState<CustomAlertState>({ visible: false, title: "", message: "", type: "info" });
+  const closeAlert = () => setCustomAlert((prev) => ({ ...prev, visible: false }));
 
   // States quản lý hiển thị các Modal
   const [modalType, setModalType] = useState<"none" | "personal" | "security" | "notifications" | "support" | "about">("none");
@@ -92,33 +96,50 @@ export default function ProfileScreen() {
   }, []);
 
   const handleLogout = () => {
-    Alert.alert("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất?", [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Đăng xuất",
-        style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.multiRemove([
-            "userToken",
-            "userData",
-            "isFaceUpdated",
-          ]);
-          router.replace("/");
-        },
-      },
-    ]);
+    setCustomAlert({
+      visible: true,
+      title: "Đăng xuất",
+      message: "Bạn có chắc chắn muốn đăng xuất?",
+      type: "warning",
+      cancelText: "Hủy",
+      confirmText: "Đăng xuất",
+      onCancel: closeAlert,
+      onConfirm: async () => {
+        closeAlert();
+        await AsyncStorage.multiRemove([
+          "userToken",
+          "userData",
+          "isFaceUpdated",
+        ]);
+        router.replace("/");
+      }
+    });
   };
 
   // Lưu thông tin cá nhân mới
   const handleSavePersonalInfo = async () => {
     if (!editName.trim()) {
-      Alert.alert("Lỗi", "Họ và tên không được để trống.");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Họ và tên không được để trống.",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
     const userId = userData?.id_nhan_vien || userData?.id;
     if (!userId) {
-      Alert.alert("Lỗi", "Không tìm thấy mã nhân viên.");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Không tìm thấy mã nhân viên.",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
@@ -131,11 +152,8 @@ export default function ProfileScreen() {
         },
         body: JSON.stringify({
           full_name: editName.trim(),
-          phone_number: editPhone.trim(),
-          address: editAddress.trim(),
-          email: editEmail.trim(),
-          date_of_birth: `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, "0")}-${String(dobDate.getDate()).padStart(2, "0")}`,
-          gender: editGender
+          ngay_sinh: `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, "0")}-${String(dobDate.getDate()).padStart(2, "0")}`,
+          gioi_tinh: editGender,
         }),
       });
 
@@ -144,12 +162,7 @@ export default function ProfileScreen() {
       if (response.ok && result.success) {
         const updatedData = {
           ...userData,
-          ...result.data,
-          ho_va_ten: result.data?.full_name || editName.trim(),
-          full_name: result.data?.full_name || editName.trim(),
-          so_dien_thoai: result.data?.phone_number || editPhone.trim(),
-          dia_chi: result.data?.address || editAddress.trim(),
-          email: result.data?.email || editEmail.trim(),
+          ho_va_ten: result.data?.fullname || editName.trim(),
           ngay_sinh: result.data?.date_of_birth || `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, "0")}-${String(dobDate.getDate()).padStart(2, "0")}`,
           gioi_tinh: result.data?.gender || editGender,
         };
@@ -157,13 +170,34 @@ export default function ProfileScreen() {
         await AsyncStorage.setItem("userData", JSON.stringify(updatedData));
         setUserData(updatedData);
         setModalType("none");
-        Alert.alert("Thành công", "Đã cập nhật thông tin cá nhân của bạn.");
+        setCustomAlert({
+          visible: true,
+          title: "Thành công",
+          message: "Đã cập nhật thông tin cá nhân của bạn.",
+          type: "success",
+          confirmText: "Đồng ý",
+          onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+        });
       } else {
-        Alert.alert("Lỗi", result.message || "Cập nhật thất bại.");
+        setCustomAlert({
+          visible: true,
+          title: "Lỗi",
+          message: result.message || "Cập nhật thất bại.",
+          type: "error",
+          confirmText: "Đã hiểu",
+          onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+        });
       }
     } catch (err) {
       console.error("Lỗi khi lưu thông tin cá nhân:", err);
-      Alert.alert("Thất bại", "Không thể lưu thông tin. Vui lòng kiểm tra kết nối mạng.");
+      setCustomAlert({
+        visible: true,
+        title: "Thất bại",
+        message: "Không thể lưu thông tin. Vui lòng kiểm tra kết nối mạng.",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
     } finally {
       setIsLoading(false);
     }
@@ -172,23 +206,51 @@ export default function ProfileScreen() {
   // Đổi mật khẩu
   const handleUpdatePassword = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
-      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ tất cả các trường mật khẩu.");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Vui lòng nhập đầy đủ tất cả các trường mật khẩu.",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert("Lỗi", "Mật khẩu mới phải chứa ít nhất 6 ký tự.");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Mật khẩu mới phải chứa ít nhất 6 ký tự.",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert("Lỗi", "Mật khẩu mới và mật khẩu xác nhận không trùng khớp.");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Mật khẩu mới và mật khẩu xác nhận không trùng khớp.",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
     const userId = userData?.id_nhan_vien || userData?.id;
     if (!userId) {
-      Alert.alert("Lỗi", "Không tìm thấy mã nhân viên.");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Không tìm thấy mã nhân viên.",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
@@ -212,13 +274,34 @@ export default function ProfileScreen() {
         setNewPassword("");
         setConfirmPassword("");
         setModalType("none");
-        Alert.alert("Thành công", "Mật khẩu của bạn đã được thay đổi thành công.");
+        setCustomAlert({
+          visible: true,
+          title: "Thành công",
+          message: "Mật khẩu của bạn đã được thay đổi thành công.",
+          type: "success",
+          confirmText: "Đồng ý",
+          onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+        });
       } else {
-        Alert.alert("Lỗi", result.message || "Đổi mật khẩu thất bại.");
+        setCustomAlert({
+          visible: true,
+          title: "Lỗi",
+          message: result.message || "Đổi mật khẩu thất bại.",
+          type: "error",
+          confirmText: "Đã hiểu",
+          onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+        });
       }
     } catch (err) {
       console.error("Lỗi khi đổi mật khẩu:", err);
-      Alert.alert("Thất bại", "Không thể đổi mật khẩu. Vui lòng kiểm tra kết nối mạng.");
+      setCustomAlert({
+        visible: true,
+        title: "Thất bại",
+        message: "Không thể đổi mật khẩu. Vui lòng kiểm tra kết nối mạng.",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
     } finally {
       setUpdatingPassword(false);
     }
@@ -267,7 +350,14 @@ export default function ProfileScreen() {
             />
             <TouchableOpacity
               style={styles.editAvatarBtn}
-              onPress={() => Alert.alert("Thông báo", "Tính năng thay đổi ảnh đại diện đang được phát triển.")}
+              onPress={() => setCustomAlert({
+                visible: true,
+                title: "Thông báo",
+                message: "Tính năng thay đổi ảnh đại diện đang được phát triển.",
+                type: "info",
+                confirmText: "Đã hiểu",
+                onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+              })}
             >
               <MaterialIcons name="camera-alt" size={14} color="#FFF" />
             </TouchableOpacity>
@@ -637,6 +727,7 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+      <CustomAlert {...customAlert} />
     </SafeAreaView>
   );
 }

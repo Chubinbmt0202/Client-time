@@ -8,6 +8,7 @@ import { FocusFrame } from "../components/FaceRegistration/FocusFrame";
 import { GuideOverlay } from "../components/FaceRegistration/GuideOverlay";
 import { LoadingOverlay } from "../components/FaceRegistration/LoadingOverlay";
 import { useFaceRegistration } from "../hooks/useFaceRegistration";
+import { CustomAlert } from "../components/CustomAlert";
 
 export default function FaceRegistrationScreen() {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function FaceRegistrationScreen() {
     statusMessage,
     frameProcessor,
     resetRegistration,
+    alertConfig,
   } = useFaceRegistration(cameraRef);
 
   useFocusEffect(
@@ -80,6 +82,8 @@ export default function FaceRegistrationScreen() {
           <Text style={styles.backText}>Quay lại</Text>
         </TouchableOpacity>
       </View>
+
+      <CustomAlert {...alertConfig} />
     </View>
   );
 }

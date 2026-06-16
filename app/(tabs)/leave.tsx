@@ -6,7 +6,6 @@ import { useNavigation, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -19,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CustomAlert, CustomAlertState } from "../../components/CustomAlert";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_ENDPOINTS } from "../../constants/api";
@@ -41,6 +41,12 @@ export default function LeaveScreen() {
   const [reason, setReason] = useState("");
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [loading, setLoading] = useState(false);
+  const [customAlert, setCustomAlert] = useState<CustomAlertState>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
 
   const onFromDateChange = (event: any, selectedDate?: Date) => {
     setShowFromPicker(Platform.OS === "ios");
@@ -67,7 +73,14 @@ export default function LeaveScreen() {
         setSelectedFile(result.assets[0]);
       }
     } catch (err) {
-      Alert.alert("Lỗi", "Không thể chọn tài liệu");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Không thể chọn tài liệu",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
     }
   };
 
@@ -91,14 +104,28 @@ export default function LeaveScreen() {
       
       const userDataStr = await AsyncStorage.getItem("userData");
       if (!userDataStr) {
-        Alert.alert("Lỗi", "Vui lòng đăng nhập lại");
+        setCustomAlert({
+          visible: true,
+          title: "Lỗi",
+          message: "Vui lòng đăng nhập lại",
+          type: "error",
+          confirmText: "Đã hiểu",
+          onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+        });
         return;
       }
       const userData = JSON.parse(userDataStr);
       const employeeId = userData.id_nhan_vien || userData.id;
       
       if (!employeeId) {
-        Alert.alert("Lỗi", "Không tìm thấy mã nhân viên");
+        setCustomAlert({
+          visible: true,
+          title: "Lỗi",
+          message: "Không tìm thấy mã nhân viên",
+          type: "error",
+          confirmText: "Đã hiểu",
+          onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+        });
         setLoading(false);
         return;
       }
@@ -111,7 +138,14 @@ export default function LeaveScreen() {
         cloudinaryUrl = await uploadImageToCloudinary(selectedFile.uri, employeeId);
         
         if (!cloudinaryUrl) {
-          Alert.alert("Lỗi", "Không thể upload minh chứng. Vui lòng thử lại.");
+          setCustomAlert({
+            visible: true,
+            title: "Lỗi",
+            message: "Không thể upload minh chứng. Vui lòng thử lại.",
+            type: "error",
+            confirmText: "Đã hiểu",
+            onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+          });
           setLoading(false);
           return;
         }
@@ -149,22 +183,39 @@ export default function LeaveScreen() {
       const result = await response.json();
 
       if (result.success) {
-        // Điều hướng tới trang thành công
-        router.push({
-          pathname: "/leave-success",
-          params: {
-            ...leaveData,
-            fileName: selectedFile?.name || "",
-            file: selectedFile ? JSON.stringify(selectedFile) : "",
-            cloudinaryUrl: cloudinaryUrl || "", // Truyền URL sang trang thành công nếu cần
-          },
+        setCustomAlert({
+          visible: true,
+          title: "Thành công",
+          message: "Đã gửi đơn xin nghỉ phép thành công!",
+          type: "success",
+          confirmText: "Đồng ý",
+          onConfirm: () => {
+            setCustomAlert((prev) => ({ ...prev, visible: false }));
+            setSelectedFile(null);
+            setReason("");
+            router.replace("/(tabs)/home");
+          }
         });
       } else {
-        Alert.alert("Lỗi", result.message || "Không thể tạo đơn xin nghỉ phép");
+        setCustomAlert({
+          visible: true,
+          title: "Lỗi",
+          message: result.message || "Không thể tạo đơn xin nghỉ phép",
+          type: "error",
+          confirmText: "Đã hiểu",
+          onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+        });
       }
     } catch (error) {
       console.error("Lỗi khi gửi đơn:", error);
-      Alert.alert("Lỗi", "Đã có lỗi xảy ra. Vui lòng thử lại sau.");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Đã có lỗi xảy ra. Vui lòng thử lại sau.",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
     } finally {
       setLoading(false);
     }
@@ -341,6 +392,7 @@ export default function LeaveScreen() {
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+      <CustomAlert {...customAlert} />
     </SafeAreaView>
   );
 }

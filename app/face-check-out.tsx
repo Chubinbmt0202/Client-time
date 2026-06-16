@@ -3,12 +3,12 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
+import { CustomAlert, CustomAlertState } from "../components/CustomAlert";
 import {
   Camera,
   useCameraDevice,
@@ -36,6 +36,12 @@ export default function CheckOutScreen() {
   // 🚀 Đếm 1.5 giây sau khi mở màn hình mới cho phép AI bắt đầu canh chụp
   const [statusMessage, setStatusMessage] = useState("Đang khởi động");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [customAlert, setCustomAlert] = useState<CustomAlertState>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
   const isCapturing = useRef(false);
 
   useFocusEffect(
@@ -123,8 +129,17 @@ export default function CheckOutScreen() {
 
       const userDataString = await AsyncStorage.getItem("userData");
       if (!userDataString) {
-        Alert.alert("Lỗi", "Không tìm thấy thông tin nhân viên. Vui lòng đăng nhập lại.");
-        resetAttendance();
+        setCustomAlert({
+          visible: true,
+          title: "Lỗi",
+          message: "Không tìm thấy thông tin nhân viên. Vui lòng đăng nhập lại.",
+          type: "error",
+          confirmText: "Đã hiểu",
+          onConfirm: () => {
+            setCustomAlert(prev => ({ ...prev, visible: false }));
+            resetAttendance();
+          }
+        });
         return;
       }
       const userId = JSON.parse(userDataString).id;
@@ -195,28 +210,51 @@ export default function CheckOutScreen() {
         // Hiển thị tên và thông báo
         const userName = data.data?.fullname || "Nhân viên";
 
-        Alert.alert(
-          "Thành công",
-          `Chào ${userName}! Bạn đã chấm công ra thành công.`,
-          [
-            // Mẹo: Dùng router.replace để thay thế hẳn màn hình, không bị xếp chồng trang
-            { text: "OK", onPress: () => router.replace("/(tabs)/home") }
-          ]
-        );
+        setCustomAlert({
+          visible: true,
+          title: "Thành công",
+          message: `Chào ${userName}! Bạn đã chấm công ra thành công.`,
+          type: "success",
+          confirmText: "OK",
+          onConfirm: () => {
+            setCustomAlert(prev => ({ ...prev, visible: false }));
+            router.replace("/(tabs)/home");
+          }
+        });
       } else {
         console.error("❌ Nhận diện thất bại:", data);
-        Alert.alert("Không khớp", data.message || "Khuôn mặt này không khớp với hệ thống hoặc bạn chưa chấm công vào.", [
-          { text: "Thử lại", onPress: resetAttendance },
-          { text: "Hủy", style: "cancel" }
-        ]);
+        setCustomAlert({
+          visible: true,
+          title: "Không khớp",
+          message: data.message || "Khuôn mặt này không khớp với hệ thống hoặc bạn chưa chấm công vào.",
+          type: "error",
+          confirmText: "Thử lại",
+          cancelText: "Hủy",
+          onConfirm: () => {
+            setCustomAlert(prev => ({ ...prev, visible: false }));
+            resetAttendance();
+          },
+          onCancel: () => {
+            setCustomAlert(prev => ({ ...prev, visible: false }));
+            setStatusMessage("Vui lòng thử lại");
+          }
+        });
         setStatusMessage("Vui lòng thử lại");
       }
 
     } catch (error) {
       console.error("Lỗi quá trình chấm công:", error);
-      Alert.alert("Lỗi", "Quá trình xử lý bị gián đoạn. Vui lòng kiểm tra lại mạng.", [
-        { text: "Thử lại", onPress: resetAttendance }
-      ]);
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Quá trình xử lý bị gián đoạn. Vui lòng kiểm tra lại mạng.",
+        type: "error",
+        confirmText: "Thử lại",
+        onConfirm: () => {
+          setCustomAlert(prev => ({ ...prev, visible: false }));
+          resetAttendance();
+        }
+      });
     }
   };
 
@@ -257,6 +295,7 @@ export default function CheckOutScreen() {
           <Text style={styles.backText}>Quay lại</Text>
         </TouchableOpacity>
       </View>
+      <CustomAlert {...customAlert} />
     </View>
   );
 }

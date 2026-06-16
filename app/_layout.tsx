@@ -13,7 +13,6 @@ import {
 import { Drawer } from "expo-router/drawer";
 import React, { useCallback, useEffect, useRef } from "react";
 import {
-  Alert,
   Image,
   PanResponder,
   ScrollView,
@@ -27,6 +26,7 @@ import { ref, onValue, query, limitToLast, orderByChild } from "firebase/databas
 import { database } from "../utils/firebase";
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync, savePushTokenToBackend } from '../utils/notifications';
+import { CustomAlert, CustomAlertState } from "../components/CustomAlert";
 
 function CustomDrawerContent(props: any) {
   const router = useRouter();
@@ -39,6 +39,9 @@ function CustomDrawerContent(props: any) {
   });
   const [unreadCount, setUnreadCount] = React.useState(0);
   const [isFaceUpdated, setIsFaceUpdated] = React.useState(false);
+
+  const [customAlert, setCustomAlert] = React.useState<CustomAlertState>({ visible: false, title: "", message: "", type: "info" });
+  const closeAlert = () => setCustomAlert((prev) => ({ ...prev, visible: false }));
 
   React.useEffect(() => {
     AsyncStorage.getItem("userData").then(str => {
@@ -84,32 +87,35 @@ function CustomDrawerContent(props: any) {
   }, [profile.id]);
 
   const handleLogout = async () => {
-    Alert.alert("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất?", [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Đăng xuất",
-        onPress: async () => {
-          try {
-            await AsyncStorage.multiRemove([
-              "userToken",
-              "userData",
-              "isFaceUpdated",
-            ]);
-            console.log("Đăng xuất thành công");
-          } catch (error) {
-            console.error("Lỗi khi xóa storage:", error);
-          } finally {
-            if (props?.navigation?.closeDrawer) {
-              props.navigation.closeDrawer();
-            }
-            setTimeout(() => {
-              router.push("/");
-            }, 100);
+    setCustomAlert({
+      visible: true,
+      title: "Đăng xuất",
+      message: "Bạn có chắc chắn muốn đăng xuất?",
+      type: "warning",
+      cancelText: "Hủy",
+      confirmText: "Đăng xuất",
+      onCancel: closeAlert,
+      onConfirm: async () => {
+        closeAlert();
+        try {
+          await AsyncStorage.multiRemove([
+            "userToken",
+            "userData",
+            "isFaceUpdated",
+          ]);
+          console.log("Đăng xuất thành công");
+        } catch (error) {
+          console.error("Lỗi khi xóa storage:", error);
+        } finally {
+          if (props?.navigation?.closeDrawer) {
+            props.navigation.closeDrawer();
           }
-        },
-        style: "destructive",
-      },
-    ]);
+          setTimeout(() => {
+            router.push("/");
+          }, 100);
+        }
+      }
+    });
   };
 
   const menuItems = [
@@ -237,6 +243,7 @@ function CustomDrawerContent(props: any) {
           </View>
         </View>
       </View>
+      <CustomAlert {...customAlert} />
     </View>
   );
 }
@@ -246,6 +253,9 @@ export default function RootLayout() {
   const pathname = usePathname();
   const navigation = useNavigation();
   const segments = useSegments();
+
+  const [customAlert, setCustomAlert] = React.useState<CustomAlertState>({ visible: false, title: "", message: "", type: "info" });
+  const closeAlert = () => setCustomAlert((prev) => ({ ...prev, visible: false }));
 
   // Trình lắng nghe và đồng bộ thông báo đẩy (Push Notifications)
   useEffect(() => {
@@ -327,18 +337,17 @@ export default function RootLayout() {
     } catch (error) {
       console.error("Lỗi khi xóa session:", error);
     } finally {
-      Alert.alert(
-        "Hết phiên đăng nhập",
-        "Bạn đã không hoạt động trong một thời gian. Vui lòng đăng nhập lại.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              router.push("/");
-            },
-          },
-        ],
-      );
+      setCustomAlert({
+        visible: true,
+        title: "Hết phiên đăng nhập",
+        message: "Bạn đã không hoạt động trong một thời gian. Vui lòng đăng nhập lại.",
+        type: "warning",
+        confirmText: "OK",
+        onConfirm: () => {
+          closeAlert();
+          router.push("/");
+        }
+      });
     }
   }, [router]);
 
@@ -414,10 +423,7 @@ export default function RootLayout() {
             name="face-attendance"
             options={{ headerShown: false, swipeEnabled: false }}
           />
-          <Drawer.Screen
-            name="leave-success"
-            options={{ headerShown: false, swipeEnabled: false }}
-          />
+
           <Drawer.Screen
             name="leave-history"
             options={{ headerShown: false, swipeEnabled: false }}
@@ -432,6 +438,7 @@ export default function RootLayout() {
           />
         </Drawer>
       </GestureHandlerRootView>
+      <CustomAlert {...customAlert} />
     </View>
   );
 }

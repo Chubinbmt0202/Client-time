@@ -29,6 +29,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { API_ENDPOINTS } from "../../constants/api";
 import { database } from "../../utils/firebase";
+import { CustomAlert, CustomAlertState } from "../../components/CustomAlert";
 
 
 // Cấu hình cách hiển thị thông báo khi ứng dụng đang mở (Foreground)
@@ -84,6 +85,12 @@ export default function DashboardScreen() {
   const [showLateModal, setShowLateModal] = useState(false);
   const [lateReason, setLateReason] = useState("");
   const [isFaceUpdated, setIsFaceUpdated] = useState(false);
+  const [customAlert, setCustomAlert] = useState<CustomAlertState>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
   const [shiftStartHours, setShiftStartHours] = useState(8);
   const [shiftStartMinutes, setShiftStartMinutes] = useState(0);
   const [shiftEndHours, setShiftEndHours] = useState(17);
@@ -323,35 +330,33 @@ export default function DashboardScreen() {
       console.log("Firebase Realtime Database data nhận được:", data);
 
       if (data && data.request_update === true) {
-        Alert.alert(
-          "Yêu cầu cập nhật khuôn mặt",
-          "Quản trị viên yêu cầu bạn cập nhật lại khuôn mặt mẫu. Vui lòng thực hiện chụp ảnh khuôn mặt mới.",
-          [
-            {
-              text: "Cập nhật ngay",
-              onPress: async () => {
-                // 1. Cập nhật local state & AsyncStorage để chuyển đổi UI về trạng thái chưa đăng ký
-                setIsFaceUpdated(false);
-                await AsyncStorage.setItem("isFaceUpdated", "false");
-                const userStr = await AsyncStorage.getItem("userData");
-                if (userStr) {
-                  const user = JSON.parse(userStr);
-                  user.is_face_updated = false;
-                  await AsyncStorage.setItem("userData", JSON.stringify(user));
-                }
-
-                // 2. Chuyển hướng sang màn hình đăng ký khuôn mặt
-                router.push("/face-registration");
-              }
-            },
-            {
-              text: "Bỏ qua",
-              style: "cancel",
-              onPress: () => console.log("Người dùng đã chọn Bỏ qua cập nhật khuôn mặt"),
+        setCustomAlert({
+          visible: true,
+          title: "Yêu cầu cập nhật khuôn mặt",
+          message: "Quản trị viên yêu cầu bạn cập nhật lại khuôn mặt mẫu. Vui lòng thực hiện chụp ảnh khuôn mặt mới.",
+          type: "warning",
+          confirmText: "Cập nhật ngay",
+          cancelText: "Bỏ qua",
+          onConfirm: async () => {
+            setCustomAlert((prev) => ({ ...prev, visible: false }));
+            // 1. Cập nhật local state & AsyncStorage để chuyển đổi UI về trạng thái chưa đăng ký
+            setIsFaceUpdated(false);
+            await AsyncStorage.setItem("isFaceUpdated", "false");
+            const userStr = await AsyncStorage.getItem("userData");
+            if (userStr) {
+              const user = JSON.parse(userStr);
+              user.is_face_updated = false;
+              await AsyncStorage.setItem("userData", JSON.stringify(user));
             }
-          ],
-          { cancelable: false }
-        );
+
+            // 2. Chuyển hướng sang màn hình đăng ký khuôn mặt
+            router.push("/face-registration");
+          },
+          onCancel: () => {
+            setCustomAlert((prev) => ({ ...prev, visible: false }));
+            console.log("Người dùng đã chọn Bỏ qua cập nhật khuôn mặt");
+          }
+        });
       }
     });
 
@@ -522,11 +527,14 @@ export default function DashboardScreen() {
     const isTooEarly = currentHours < (shiftStartHours - 1);
 
     if (isTooEarly) {
-      Alert.alert(
-        "Không thể vào ca",
-        `Chưa tới ca làm việc. Bạn chỉ được phép chấm công sớm tối đa 1 tiếng trước khi vào ca.`,
-        [{ text: "Đã hiểu", style: "cancel" }]
-      );
+      setCustomAlert({
+        visible: true,
+        title: "Không thể vào ca",
+        message: `Chưa tới ca làm việc. Bạn chỉ được phép chấm công sớm tối đa 1 tiếng trước khi vào ca.`,
+        type: "warning",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
@@ -536,11 +544,14 @@ export default function DashboardScreen() {
       (currentHours === (shiftEndHours + 1) && currentMinutes >= shiftEndMinutes);
 
     if (isAfterShiftEndPlus1Hour) {
-      Alert.alert(
-        "Không thể vào ca",
-        "Đã quá giờ ca hành chính 1 tiếng. Bạn không thể check-in vào ca này được nữa mà phải đăng ký OT.",
-        [{ text: "Đã hiểu", style: "cancel" }]
-      );
+      setCustomAlert({
+        visible: true,
+        title: "Không thể vào ca",
+        message: "Đã quá giờ ca hành chính 1 tiếng. Bạn không thể check-in vào ca này được nữa mà phải đăng ký OT.",
+        type: "warning",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
@@ -566,7 +577,14 @@ export default function DashboardScreen() {
 
   const handleLateSubmit = () => {
     if (!lateReason.trim()) {
-      Alert.alert("Lỗi", "Vui lòng nhập lý do giải trình đi trễ.");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Vui lòng nhập lý do giải trình đi trễ.",
+        type: "error",
+        confirmText: "Đã hiểu",
+        onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
     setShowLateModal(false);
@@ -1082,6 +1100,7 @@ export default function DashboardScreen() {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+      <CustomAlert {...customAlert} />
     </SafeAreaView>
   );
 }

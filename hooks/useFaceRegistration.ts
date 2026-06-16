@@ -13,8 +13,9 @@ export const useFaceRegistration = (cameraRef: React.RefObject<any>) => {
   const router = useRouter();
   const [step, setStep] = useState<RegistrationStep>("STRAIGHT");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [capturedImages, setCapturedImages] = useState<string[]>([]); ``
+  const [capturedImages, setCapturedImages] = useState<string[]>([]);
   const [statusMessage, setStatusMessage] = useState("Nhìn thẳng vào camera");
+  const [alertConfig, setAlertConfig] = useState({ visible: false, title: "", message: "", type: "info" } as any);
   const isCapturing = useRef(false);
 
   const { faceData, frameProcessor } = useFaceDetection(isProcessing);
@@ -162,18 +163,41 @@ export const useFaceRegistration = (cameraRef: React.RefObject<any>) => {
           await AsyncStorage.setItem("userData", JSON.stringify(userData));
         }
 
-        Alert.alert("Thành công", "Đã đăng ký khuôn mặt thành công!", [
-          { text: "Đồng ý", onPress: () => router.replace("/(tabs)/home") },
-        ]);
+        setAlertConfig({
+          visible: true,
+          title: "Thành công",
+          message: "Đã đăng ký khuôn mặt thành công!",
+          type: "success",
+          onConfirm: () => {
+            setAlertConfig((prev: any) => ({ ...prev, visible: false }));
+            router.replace("/(tabs)/home");
+          }
+        });
       } else {
-        Alert.alert("Thất bại", data.message || "Vui lòng chụp hình trong môi trường đủ ánh sáng, ...", [
-          { text: "Thử lại", onPress: resetRegistration }
-        ]);
+        setAlertConfig({
+          visible: true,
+          title: "Thất bại",
+          message: data.message || "Vui lòng chụp hình trong môi trường đủ ánh sáng, ...",
+          type: "error",
+          confirmText: "Thử lại",
+          onConfirm: () => {
+            setAlertConfig((prev: any) => ({ ...prev, visible: false }));
+            resetRegistration();
+          }
+        });
       }
     } catch (error) {
-      Alert.alert("Lỗi", "Lỗi kết nối đến máy chủ Backend!", [
-        { text: "Thử lại", onPress: resetRegistration }
-      ]);
+      setAlertConfig({
+        visible: true,
+        title: "Lỗi",
+        message: "Lỗi kết nối đến máy chủ!",
+        type: "error",
+        confirmText: "Thử lại",
+        onConfirm: () => {
+          setAlertConfig((prev: any) => ({ ...prev, visible: false }));
+          resetRegistration();
+        }
+      });
     }
   };
 
@@ -184,5 +208,7 @@ export const useFaceRegistration = (cameraRef: React.RefObject<any>) => {
     statusMessage,
     frameProcessor,
     resetRegistration,
+    alertConfig,
+    setAlertConfig,
   };
 };

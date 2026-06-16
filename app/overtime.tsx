@@ -5,7 +5,6 @@ import { useNavigation, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -21,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_ENDPOINTS } from "../constants/api";
+import { CustomAlert, CustomAlertState } from "../components/CustomAlert";
 
 export default function OvertimeScreen() {
   const router = useRouter();
@@ -36,6 +36,14 @@ export default function OvertimeScreen() {
   
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [customAlert, setCustomAlert] = useState<CustomAlertState>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
+  const closeAlert = () => setCustomAlert((prev) => ({ ...prev, visible: false }));
 
   const onDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === "ios");
@@ -73,7 +81,13 @@ export default function OvertimeScreen() {
   const handleSubmit = async () => {
     try {
       if (!reason.trim()) {
-        Alert.alert("Lỗi", "Vui lòng nhập lý do tăng ca");
+        setCustomAlert({
+          visible: true,
+          title: "Lỗi",
+          message: "Vui lòng nhập lý do tăng ca",
+          type: "error",
+          onConfirm: closeAlert
+        });
         return;
       }
 
@@ -81,7 +95,13 @@ export default function OvertimeScreen() {
       
       const userDataStr = await AsyncStorage.getItem("userData");
       if (!userDataStr) {
-        Alert.alert("Lỗi", "Vui lòng đăng nhập lại");
+        setCustomAlert({
+          visible: true,
+          title: "Lỗi",
+          message: "Vui lòng đăng nhập lại",
+          type: "error",
+          onConfirm: closeAlert
+        });
         return;
       }
       const userData = JSON.parse(userDataStr);
@@ -109,18 +129,34 @@ export default function OvertimeScreen() {
       const result = await response.json();
 
       if (result.success) {
-        Alert.alert("Thành công", "Đã gửi đơn đăng ký tăng ca", [
-          {
-            text: "OK",
-            onPress: () => router.push("/(tabs)/home"),
-          },
-        ]);
+        setCustomAlert({
+          visible: true,
+          title: "Thành công",
+          message: "Đã gửi đơn đăng ký tăng ca",
+          type: "success",
+          onConfirm: () => {
+            closeAlert();
+            router.push("/(tabs)/home");
+          }
+        });
       } else {
-        Alert.alert("Lỗi", result.message || "Không thể tạo đơn đăng ký tăng ca");
+        setCustomAlert({
+          visible: true,
+          title: "Lỗi",
+          message: result.message || "Không thể tạo đơn đăng ký tăng ca",
+          type: "error",
+          onConfirm: closeAlert
+        });
       }
     } catch (error) {
       console.error("Lỗi khi gửi đơn OT:", error);
-      Alert.alert("Lỗi", "Đã có lỗi xảy ra. Vui lòng thử lại sau.");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Đã có lỗi xảy ra. Vui lòng thử lại sau.",
+        type: "error",
+        onConfirm: closeAlert
+      });
     } finally {
       setLoading(false);
     }
@@ -261,6 +297,8 @@ export default function OvertimeScreen() {
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+
+      <CustomAlert {...customAlert} />
     </SafeAreaView>
   );
 }

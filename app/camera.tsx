@@ -3,7 +3,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -21,6 +20,7 @@ import { API_ENDPOINTS } from "../constants/api";
 import { useFaceDetection } from "../hooks/useFaceDetection";
 import { useFaceEmbedding } from "../hooks/useFaceEmbedding";
 import { captureAndCropFace } from "../utils/captureAndCrop";
+import { CustomAlert, CustomAlertState } from "../components/CustomAlert";
 
 export default function BasicCameraScreen() {
   const router = useRouter();
@@ -38,6 +38,14 @@ export default function BasicCameraScreen() {
     null,
   );
   const [croppedImageUri, setCroppedImageUri] = useState<string | null>(null);
+
+  const [customAlert, setCustomAlert] = useState<CustomAlertState>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
+  const closeAlert = () => setCustomAlert((prev) => ({ ...prev, visible: false }));
 
   // Gọi Hook xử lý Bước 1
   const { faceData, frameProcessor } = useFaceDetection(isProcessing);
@@ -66,9 +74,13 @@ export default function BasicCameraScreen() {
           const userDataString = await AsyncStorage.getItem("userData");
 
           if (!userDataString) {
-            alert(
-              "Không tìm thấy thông tin đăng nhập. Vui lòng đăng nhập lại!",
-            );
+            setCustomAlert({
+              visible: true,
+              title: "Thất bại",
+              message: "Không tìm thấy thông tin đăng nhập. Vui lòng đăng nhập lại!",
+              type: "error",
+              onConfirm: closeAlert
+            });
             return;
           }
           const userData = JSON.parse(userDataString);
@@ -115,19 +127,35 @@ export default function BasicCameraScreen() {
         console.log("✅ Server trả về thành công:", data);
         await AsyncStorage.setItem("isFaceUpdated", "true");
 
-        Alert.alert("Thành công", "Đã đăng ký khuôn mặt thành công!", [
-          {
-            text: "Đồng ý",
-            onPress: () => router.replace("/(tabs)/home"),
-          },
-        ]);
+        setCustomAlert({
+          visible: true,
+          title: "Thành công",
+          message: "Đã đăng ký khuôn mặt thành công!",
+          type: "success",
+          onConfirm: () => {
+            closeAlert();
+            router.replace("/(tabs)/home");
+          }
+        });
       } else {
         console.error("❌ Lỗi từ server:", data);
-        alert("Thất bại: " + (data.message || "Không thể xác thực"));
+        setCustomAlert({
+          visible: true,
+          title: "Thất bại",
+          message: data.message || "Không thể xác thực",
+          type: "error",
+          onConfirm: closeAlert
+        });
       }
     } catch (error) {
       console.error("Lỗi kết nối mạng:", error);
-      alert("Lỗi kết nối đến máy chủ!");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Lỗi kết nối đến máy chủ!",
+        type: "error",
+        onConfirm: closeAlert
+      });
     }
   };
 
@@ -158,22 +186,35 @@ export default function BasicCameraScreen() {
 
       if (response.ok) {
         console.log("✅ Điểm danh thành công:", data);
-        Alert.alert("Thành công", "Chấm công thành công! Hẹn gặp lại.", [
-          {
-            text: "Đồng ý",
-            onPress: () => router.replace("/(tabs)/home"),
-          },
-        ]);
+        setCustomAlert({
+          visible: true,
+          title: "Thành công",
+          message: "Chấm công thành công! Hẹn gặp lại.",
+          type: "success",
+          onConfirm: () => {
+            closeAlert();
+            router.replace("/(tabs)/home");
+          }
+        });
       } else {
         console.error("❌ Xác thực thất bại:", data);
-        Alert.alert(
-          "Thất bại",
-          data.message || "Khuôn mặt không khớp. Vui lòng thử lại!"
-        );
+        setCustomAlert({
+          visible: true,
+          title: "Thất bại",
+          message: data.message || "Khuôn mặt không khớp. Vui lòng thử lại!",
+          type: "error",
+          onConfirm: closeAlert
+        });
       }
     } catch (error) {
       console.error("Lỗi kết nối mạng:", error);
-      alert("Lỗi kết nối đến máy chủ!");
+      setCustomAlert({
+        visible: true,
+        title: "Lỗi",
+        message: "Lỗi kết nối đến máy chủ!",
+        type: "error",
+        onConfirm: closeAlert
+      });
     }
   };
 
@@ -295,6 +336,8 @@ export default function BasicCameraScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      <CustomAlert {...customAlert} />
     </View>
   );
 }
