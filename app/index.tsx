@@ -144,16 +144,16 @@ export default function LoginScreen() {
               <View style={styles.iconWrapper}>
                 <Ionicons name="happy-outline" size={40} color="#1C75FF" />
               </View>
-              <Text style={styles.appName}>FaceCheck</Text>
+              <Text style={styles.appName}>Mindcheck</Text>
               <Text style={styles.subtitle}>
-                Efficient attendance, simplified.
+                Điểm danh hiệu quả, đơn giản hóa.
               </Text>
             </View>
 
             {/* Login Form */}
             <View style={styles.formContainer}>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Employee ID</Text>
+                <Text style={styles.label}>Mã nhân viên</Text>
                 <View style={styles.inputContainer}>
                   <MaterialCommunityIcons
                     name="badge-account-horizontal-outline"
@@ -163,7 +163,7 @@ export default function LoginScreen() {
                   />
                   <TextInput
                     style={styles.input}
-                    placeholder="EMP-0000"
+                    placeholder="NV001"
                     placeholderTextColor="#94A3B8"
                     value={employeeId}
                     onChangeText={setEmployeeId}
@@ -174,9 +174,9 @@ export default function LoginScreen() {
 
               <View style={styles.inputGroup}>
                 <View style={styles.passwordHeader}>
-                  <Text style={styles.label}>Password</Text>
+                  <Text style={styles.label}>Mật khẩu</Text>
                   <TouchableOpacity>
-                    <Text style={styles.forgotPassword}>Forgot?</Text>
+                    <Text style={styles.forgotPassword}>Quên mật khẩu?</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={styles.inputContainer}>
@@ -223,7 +223,7 @@ export default function LoginScreen() {
                       <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                     )}
                   </View>
-                  <Text style={styles.checkboxLabel}>Keep me logged in</Text>
+                  <Text style={styles.checkboxLabel}>Ghi nhớ đăng nhập</Text>
                 </TouchableOpacity>
               </View>
 
@@ -235,16 +235,16 @@ export default function LoginScreen() {
                 {isLoading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.signInButtonText}>Sign In</Text>
+                  <Text style={styles.signInButtonText}>Đăng nhập</Text>
                 )}
               </TouchableOpacity>
             </View>
 
             {/* Footer */}
             <View style={styles.footer}>
-              <Text style={styles.footerText}>New employee? </Text>
+              <Text style={styles.footerText}>Nhân viên mới? </Text>
               <TouchableOpacity>
-                <Text style={styles.footerLink}>Contact HR</Text>
+                <Text style={styles.footerLink}>Liên hệ Nhân sự</Text>
               </TouchableOpacity>
             </View>
           </View>

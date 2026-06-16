@@ -107,7 +107,7 @@ export const useFaceRegistration = (cameraRef: React.RefObject<any>) => {
 
   const processAndUploadImages = async (imageUris: string[]) => {
     setIsProcessing(true);
-    setStatusMessage("Đang đồng bộ dữ liệu (Siêu tốc)...");
+    setStatusMessage("Đang đồng bộ dữ liệu");
 
     try {
       const userDataString = await AsyncStorage.getItem("userData");
@@ -128,7 +128,7 @@ export const useFaceRegistration = (cameraRef: React.RefObject<any>) => {
       const uploadedUrls = results.filter((url) => url !== null);
       if (uploadedUrls.length !== 3) throw new Error("Chỉ tải lên được một phần ảnh.");
 
-      setStatusMessage("Đang xác thực với máy chủ AI...");
+      setStatusMessage("Đang xác thực");
       await sendRegistrationToBackend(userId, uploadedUrls as string[]);
       setStep("DONE");
     } catch (error) {
@@ -166,7 +166,7 @@ export const useFaceRegistration = (cameraRef: React.RefObject<any>) => {
           { text: "Đồng ý", onPress: () => router.replace("/(tabs)/home") },
         ]);
       } else {
-        Alert.alert("Thất bại", data.message || "Không thể xác thực khuôn mặt", [
+        Alert.alert("Thất bại", data.message || "Vui lòng chụp hình trong môi trường đủ ánh sáng, ...", [
           { text: "Thử lại", onPress: resetRegistration }
         ]);
       }
