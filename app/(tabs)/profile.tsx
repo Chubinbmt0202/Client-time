@@ -264,6 +264,8 @@ export default function ProfileScreen() {
         body: JSON.stringify({
           oldPassword,
           newPassword,
+          old_password: oldPassword,
+          new_password: newPassword,
         }),
       });
 
