@@ -279,10 +279,18 @@ export default function ProfileScreen() {
         setCustomAlert({
           visible: true,
           title: "Thành công",
-          message: "Mật khẩu của bạn đã được thay đổi thành công.",
+          message: "Mật khẩu của bạn đã được thay đổi thành công. Vui lòng đăng nhập lại với mật khẩu mới.",
           type: "success",
-          confirmText: "Đồng ý",
-          onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
+          confirmText: "Đăng nhập lại",
+          onConfirm: async () => {
+            setCustomAlert((prev) => ({ ...prev, visible: false }));
+            await AsyncStorage.multiRemove([
+              "userToken",
+              "userData",
+              "isFaceUpdated",
+            ]);
+            router.replace("/");
+          },
         });
       } else {
         setCustomAlert({
