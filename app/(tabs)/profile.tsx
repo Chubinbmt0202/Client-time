@@ -152,8 +152,11 @@ export default function ProfileScreen() {
         },
         body: JSON.stringify({
           full_name: editName.trim(),
-          ngay_sinh: `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, "0")}-${String(dobDate.getDate()).padStart(2, "0")}`,
-          gioi_tinh: editGender,
+          date_of_birth: `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, "0")}-${String(dobDate.getDate()).padStart(2, "0")}`,
+          gender: editGender,
+          phone_number: editPhone.trim(),
+          email: editEmail.trim(),
+          address: editAddress.trim(),
         }),
       });
 
@@ -162,9 +165,13 @@ export default function ProfileScreen() {
       if (response.ok && result.success) {
         const updatedData = {
           ...userData,
-          ho_va_ten: result.data?.fullname || editName.trim(),
-          ngay_sinh: result.data?.date_of_birth || `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, "0")}-${String(dobDate.getDate()).padStart(2, "0")}`,
-          gioi_tinh: result.data?.gender || editGender,
+          ho_va_ten: editName.trim(),
+          full_name: editName.trim(),
+          ngay_sinh: `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, "0")}-${String(dobDate.getDate()).padStart(2, "0")}`,
+          gioi_tinh: editGender,
+          so_dien_thoai: editPhone.trim(),
+          email: editEmail.trim(),
+          dia_chi: editAddress.trim(),
         };
 
         await AsyncStorage.setItem("userData", JSON.stringify(updatedData));
