@@ -96,6 +96,7 @@ export default function DashboardScreen() {
   const [shiftEndHours, setShiftEndHours] = useState(17);
   const [shiftEndMinutes, setShiftEndMinutes] = useState(0);
   const [shiftLateTolerance, setShiftLateTolerance] = useState(15);
+  const [shiftCheckInBeforeMins, setShiftCheckInBeforeMins] = useState(60);
   const [profile, setProfile] = useState<{
     name: string;
     id: string;
@@ -218,10 +219,10 @@ export default function DashboardScreen() {
         // 🚀 LẤY CẤU HÌNH CA LÀM VIỆC TỪ BACKEND
         // ==========================================
         try {
-          const shiftResponse = await fetch(API_ENDPOINTS.GET_ALL_SHIFTS);
+          const shiftResponse = await fetch(API_ENDPOINTS.GET_MY_SHIFT(userProfile.id));
           const shiftResult = await shiftResponse.json();
-          if (shiftResult.success && shiftResult.data && shiftResult.data.length > 0) {
-            const shift = shiftResult.data[0];
+          if (shiftResult.success && shiftResult.data) {
+            const shift = shiftResult.data;
             if (shift.start_time) {
               const [sh, sm] = shift.start_time.split(":");
               setShiftStartHours(parseInt(sh, 10));
@@ -234,6 +235,9 @@ export default function DashboardScreen() {
             }
             if (shift.late_tolerance_mins !== undefined) {
               setShiftLateTolerance(parseInt(shift.late_tolerance_mins, 10) || 0);
+            }
+            if (shift.check_in_before_mins !== undefined) {
+              setShiftCheckInBeforeMins(parseInt(shift.check_in_before_mins, 10) || 60);
             }
           }
         } catch (shiftErr) {
@@ -523,14 +527,18 @@ export default function DashboardScreen() {
       return;
     }
 
-    // Giới hạn thời gian chấm công sớm: Không được chấm công trước quá 1 tiếng (trước 7:00)
-    const isTooEarly = currentHours < (shiftStartHours - 1);
+    console.log("Mở chấm công vào trước (phút) của phòng ban đó:", shiftCheckInBeforeMins);
+
+    // Giới hạn thời gian chấm công sớm: Sử dụng số phút cho phép (mặc định 60 phút)
+    const shiftStartTotalMinutes = shiftStartHours * 60 + shiftStartMinutes;
+    const currentTotalMinutesForCheckIn = currentHours * 60 + currentMinutes;
+    const isTooEarly = currentTotalMinutesForCheckIn < (shiftStartTotalMinutes - shiftCheckInBeforeMins);
 
     if (isTooEarly) {
       setCustomAlert({
         visible: true,
         title: "Không thể vào ca",
-        message: `Chưa tới ca làm việc. Bạn chỉ được phép chấm công sớm tối đa 1 tiếng trước khi vào ca.`,
+        message: `Chưa tới ca làm việc. Bạn chỉ được phép chấm công sớm tối đa ${shiftCheckInBeforeMins} phút trước khi vào ca.`,
         type: "warning",
         confirmText: "Đã hiểu",
         onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),

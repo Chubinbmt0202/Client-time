@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
   UPDATE_PROFILE: (id: string) => `${BASE_URL_IP_100}/api/employees/update/${id}`,
   CHANGE_PASSWORD: (id: string) => `${BASE_URL_IP_100}/api/employees/change-password/${id}`,
   GET_ALL_SHIFTS: `${BASE_URL_IP_100}/api/shifts/getAllShifts`,
+  GET_MY_SHIFT: (id: string) => `${BASE_URL_IP_100}/api/shifts/myShift/${id}`,
 };
 
 export default {
