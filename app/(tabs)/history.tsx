@@ -31,6 +31,7 @@ interface AttendanceRecord {
   otCheckOut?: string | null;
   urlAnhVao?: string | null;
   urlAnhRa?: string | null;
+  explanation?: any;
 }
 
 export default function HistoryScreen() {
@@ -75,7 +76,8 @@ export default function HistoryScreen() {
             otCheckIn: item.ot_check_in_time,
             otCheckOut: item.ot_check_out_time,
             urlAnhVao: item.url_anh_vao,
-            urlAnhRa: item.url_anh_ra
+            urlAnhRa: item.url_anh_ra,
+            explanation: item.explanation
           }));
           setHistory(records);
         }
@@ -129,6 +131,7 @@ export default function HistoryScreen() {
 
   const getStatusConfig = (status: string) => {
     switch (status) {
+      case "late":
       case "Late":
       case "Đi muộn":
         return { label: "Đi muộn", color: "#EAB308", bgColor: "#FEF9C3", icon: "time" };
@@ -138,6 +141,7 @@ export default function HistoryScreen() {
       case "Missing":
       case "Thiếu giờ ra":
         return { label: "Thiếu giờ ra", color: "#64748B", bgColor: "#F1F5F9", icon: "alert-circle" };
+      case "present":
       case "OnTime":
       case "Đúng giờ":
       default:
@@ -148,7 +152,7 @@ export default function HistoryScreen() {
   const renderItem = ({ item }: { item: AttendanceRecord }) => {
     const statusConfig = getStatusConfig(item.status);
 
-    const checkInColor = (item.status === "Late" || item.status === "Đi muộn") ? "#EAB308" : "#0F172A";
+    const checkInColor = (item.status === "late" || item.status === "Late" || item.status === "Đi muộn") ? "#EAB308" : "#0F172A";
     const checkOutColor = (item.status === "Missing" || item.status === "Thiếu giờ ra" || !item.checkOut) 
       ? "#94A3B8" 
       : (item.status === "Early" || item.status === "Về sớm" ? "#EF4444" : "#0F172A");
@@ -226,6 +230,25 @@ export default function HistoryScreen() {
     return true;
   });
 
+  const calculateHours = (inStr: string | null, outStr: string | null) => {
+    if (!inStr || !outStr) return 0;
+    try {
+       const inD = new Date(inStr);
+       const outD = new Date(outStr);
+       const diff = (outD.getTime() - inD.getTime()) / (1000 * 60 * 60);
+       return diff > 0 ? diff : 0;
+    } catch {
+       return 0;
+    }
+  };
+
+  const totalNormalShifts = filteredHistory.filter(i => i.checkIn).length;
+  const totalOtShifts = filteredHistory.filter(i => i.otCheckIn).length;
+  const totalNormalHours = filteredHistory.reduce((sum, item) => sum + calculateHours(item.checkIn, item.checkOut), 0);
+  const totalOtHours = filteredHistory.reduce((sum, item) => sum + calculateHours(item.otCheckIn, item.otCheckOut), 0);
+  const lateApproved = filteredHistory.filter(i => (i.status === 'late' || i.status === 'Late' || i.status === 'Đi muộn') && i.explanation?.trang_thai === true).length;
+  const lateUnapproved = filteredHistory.filter(i => (i.status === 'late' || i.status === 'Late' || i.status === 'Đi muộn') && i.explanation?.trang_thai !== true).length;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -262,6 +285,31 @@ export default function HistoryScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+      </View>
+
+      <View style={styles.summaryContainer}>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Ca thường</Text>
+            <Text style={styles.summaryValue}>{totalNormalShifts}</Text>
+            <Text style={styles.summarySub}>{totalNormalHours.toFixed(1)} giờ</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Tăng ca</Text>
+            <Text style={styles.summaryValue}>{totalOtShifts}</Text>
+            <Text style={styles.summarySub}>{totalOtHours.toFixed(1)} giờ</Text>
+          </View>
+        </View>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Trễ có phép</Text>
+            <Text style={[styles.summaryValue, { color: '#10B981' }]}>{lateApproved}</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Trễ không phép</Text>
+            <Text style={[styles.summaryValue, { color: '#EF4444' }]}>{lateUnapproved}</Text>
+          </View>
+        </View>
       </View>
 
       {isLoading ? (
@@ -350,6 +398,41 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: "#E2E8F0",
     marginHorizontal: 4,
+  },
+  summaryContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 4,
+    backgroundColor: "#F8FAFC",
+  },
+  summaryRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+  },
+  summaryLabel: {
+    fontSize: 13,
+    color: "#64748B",
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  summarySub: {
+    fontSize: 12,
+    color: "#94A3B8",
+    marginTop: 2,
   },
   listContent: {
     padding: 20,
