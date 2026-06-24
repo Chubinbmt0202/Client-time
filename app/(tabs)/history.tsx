@@ -169,10 +169,6 @@ export default function HistoryScreen() {
               </Text>
             </View>
           </View>
-          <Image 
-            source={{ uri: "https://i.pravatar.cc/150?img=47" }}
-            style={styles.avatarImage}
-          />
         </View>
 
         <View style={styles.timeInfoRow}>
@@ -477,11 +473,6 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 12,
     fontWeight: "500",
-  },
-  avatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
   },
   timeInfoRow: {
     flexDirection: "row",

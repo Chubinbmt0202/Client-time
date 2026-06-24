@@ -50,7 +50,7 @@ function CustomDrawerContent(props: any) {
         setProfile({
           name: user.ho_va_ten || "Người dùng",
           id: user.id_nhan_vien || "NV000",
-          role: user.vai_tro === "admin" ? "QUẢN TRỊ VIÊN" : "NHÂN VIÊN",
+          role: (user.ten_vai_tro || user.role || "NHÂN VIÊN").toUpperCase(),
           avatar: user.hinh_anh || "https://randomuser.me/api/portraits/men/32.jpg"
         });
         setIsFaceUpdated(user.is_face_updated === true);

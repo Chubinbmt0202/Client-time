@@ -101,7 +101,7 @@ export default function LeaveScreen() {
   const handleSubmit = async () => {
     try {
       setLoading(true);
-      
+
       const userDataStr = await AsyncStorage.getItem("userData");
       if (!userDataStr) {
         setCustomAlert({
@@ -116,7 +116,7 @@ export default function LeaveScreen() {
       }
       const userData = JSON.parse(userDataStr);
       const employeeId = userData.id_nhan_vien || userData.id;
-      
+
       if (!employeeId) {
         setCustomAlert({
           visible: true,
@@ -136,7 +136,7 @@ export default function LeaveScreen() {
       if (selectedFile) {
         console.log("📤 [Upload] Bắt đầu upload minh chứng lên Cloudinary...");
         cloudinaryUrl = await uploadImageToCloudinary(selectedFile.uri, employeeId);
-        
+
         if (!cloudinaryUrl) {
           setCustomAlert({
             visible: true,

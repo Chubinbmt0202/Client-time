@@ -133,7 +133,7 @@ export default function DashboardScreen() {
         const userProfile = {
           name: user.ho_va_ten || "Người dùng",
           id: user.id_nhan_vien || "NV000",
-          role: user.vai_tro === "admin" ? "Quản trị viên" : "Nhân viên",
+          role: user.ten_vai_tro || user.role || "Nhân viên",
           username: user.ten_dang_nhap || "",
           avatar: user.hinh_anh || "https://randomuser.me/api/portraits/men/32.jpg",
         };
