@@ -12,24 +12,23 @@ import { StatusBar } from "expo-status-bar";
 import { limitToLast, onValue, orderByChild, query, ref } from "firebase/database";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   Image,
+  Keyboard,
+  Modal,
   Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View,
-  Modal,
   TextInput,
-  Keyboard,
+  TouchableOpacity,
   TouchableWithoutFeedback,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { CustomAlert, CustomAlertState } from "../../components/CustomAlert";
 import { API_ENDPOINTS } from "../../constants/api";
 import { database } from "../../utils/firebase";
-import { CustomAlert, CustomAlertState } from "../../components/CustomAlert";
 
 
 // Cấu hình cách hiển thị thông báo khi ứng dụng đang mở (Foreground)
@@ -547,8 +546,8 @@ export default function DashboardScreen() {
     }
 
     // 1. Sau ca hành chính 1 tiếng thì không check in vào ca được mà phải đăng ký OT
-    const isAfterShiftEndPlus1Hour = 
-      currentHours > (shiftEndHours + 1) || 
+    const isAfterShiftEndPlus1Hour =
+      currentHours > (shiftEndHours + 1) ||
       (currentHours === (shiftEndHours + 1) && currentMinutes >= shiftEndMinutes);
 
     if (isAfterShiftEndPlus1Hour) {
@@ -567,7 +566,7 @@ export default function DashboardScreen() {
     const limitDate = new Date();
     limitDate.setHours(shiftStartHours);
     limitDate.setMinutes(shiftStartMinutes + shiftLateTolerance);
-    
+
     const currentTotalMinutes = currentHours * 60 + currentMinutes;
     const limitTotalMinutes = limitDate.getHours() * 60 + limitDate.getMinutes();
 

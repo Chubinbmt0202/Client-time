@@ -4,6 +4,7 @@ import {
   MaterialIcons,
 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from 'expo-notifications';
 import {
   useNavigation,
   usePathname,
@@ -11,6 +12,7 @@ import {
   useSegments,
 } from "expo-router";
 import { Drawer } from "expo-router/drawer";
+import { limitToLast, onValue, orderByChild, query, ref } from "firebase/database";
 import React, { useCallback, useEffect, useRef } from "react";
 import {
   Image,
@@ -22,11 +24,9 @@ import {
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { ref, onValue, query, limitToLast, orderByChild } from "firebase/database";
-import { database } from "../utils/firebase";
-import * as Notifications from 'expo-notifications';
-import { registerForPushNotificationsAsync, savePushTokenToBackend } from '../utils/notifications';
 import { CustomAlert, CustomAlertState } from "../components/CustomAlert";
+import { database } from "../utils/firebase";
+import { registerForPushNotificationsAsync, savePushTokenToBackend } from '../utils/notifications';
 
 function CustomDrawerContent(props: any) {
   const router = useRouter();
