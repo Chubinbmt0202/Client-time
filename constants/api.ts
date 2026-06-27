@@ -1,4 +1,4 @@
-const BASE_URL_IP_100 = "http://192.168.1.24:3001"
+const BASE_URL_IP_100 = "http://192.168.2.57:3001"
 
 export const API_ENDPOINTS = {
   LOGIN: `${BASE_URL_IP_100}/api/auth/login`,
@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
   DASHBOARD: (userId: string) => `${BASE_URL_IP_100}/api/employees/dashboard/${userId}`,
   LEAVE_HISTORY: (employeeId: string) => `${BASE_URL_IP_100}/api/leave/history/${employeeId}`,
   CREATE_LEAVE: `${BASE_URL_IP_100}/api/leave/create`,
+  GET_LEAVE_SUMMARY: (employeeId: string) => `${BASE_URL_IP_100}/api/leave/summary/${employeeId}`,
   NOTIFICATIONS: (employeeId: string) => `${BASE_URL_IP_100}/api/notifications/employee/${employeeId}`,
   MARK_NOTIFICATION_READ: (id: string) => `${BASE_URL_IP_100}/api/notifications/mark-read/${id}`,
   MARK_ALL_NOTIFICATIONS_READ: `${BASE_URL_IP_100}/api/notifications/mark-all-read`,
@@ -16,6 +17,7 @@ export const API_ENDPOINTS = {
   UPDATE_FCM_TOKEN: `${BASE_URL_IP_100}/api/employees/fcm-token`,
   CREATE_OT: `${BASE_URL_IP_100}/api/ot/create`,
   OT_HISTORY: (employeeId: string) => `${BASE_URL_IP_100}/api/ot/history/${employeeId}`,
+  OT_CONFIG: `${BASE_URL_IP_100}/api/ot/config`,
   UPDATE_PROFILE: (id: string) => `${BASE_URL_IP_100}/api/employees/update/${id}`,
   CHANGE_PASSWORD: (id: string) => `${BASE_URL_IP_100}/api/employees/change-password/${id}`,
   GET_ALL_SHIFTS: `${BASE_URL_IP_100}/api/shifts/getAllShifts`,

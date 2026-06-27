@@ -118,6 +118,7 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
   const [otRequests, setOtRequests] = useState<any[]>([]);
+  const [otConfig, setOtConfig] = useState<{ thoi_gian_check_in_truoc: number, thoi_gian_ot_toi_thieu: number }>({ thoi_gian_check_in_truoc: 30, thoi_gian_ot_toi_thieu: 30 });
   const navigation = useNavigation();
   const router = useRouter();
 
@@ -134,7 +135,7 @@ export default function DashboardScreen() {
           id: user.id_nhan_vien || "NV000",
           role: user.ten_vai_tro || user.role || "Nhân viên",
           username: user.ten_dang_nhap || "",
-          avatar: user.hinh_anh || "https://randomuser.me/api/portraits/men/32.jpg",
+          avatar: user.hinh_anh || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y",
         };
         setProfile(userProfile);
 
@@ -164,21 +165,17 @@ export default function DashboardScreen() {
           let normalRecord = null;
           let otRecord = null;
 
-          if (todayRecords.length === 1) {
-            const rec = todayRecords[0];
-            const checkInDate = rec.check_in_time ? new Date(rec.check_in_time) : null;
-            const hour = checkInDate ? checkInDate.getHours() : 0;
-            // Nếu giờ vào ca > 16 (tức là sau 16:00), hoặc ghi chú có chứa chữ "tăng ca" / "OT"
-            if (hour >= 16 || (rec.note && (rec.note.toLowerCase().includes("tăng ca") || rec.note.toLowerCase().includes("ot")))) {
-              otRecord = rec;
+          for (const rec of todayRecords) {
+            const isOT = rec.note && (rec.note.toLowerCase().includes("tăng ca") || rec.note.toLowerCase().includes("ot"));
+            if (isOT) {
+              if (!otRecord || new Date(rec.check_in_time).getTime() > new Date(otRecord.check_in_time).getTime()) {
+                 otRecord = rec;
+              }
             } else {
-              normalRecord = rec;
+              if (!normalRecord || new Date(rec.check_in_time).getTime() > new Date(normalRecord.check_in_time).getTime()) {
+                 normalRecord = rec;
+              }
             }
-          } else if (todayRecords.length >= 2) {
-            // Sắp xếp theo giờ vào tăng dần
-            todayRecords.sort((a: any, b: any) => new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime());
-            normalRecord = todayRecords[0];
-            otRecord = todayRecords[1];
           }
 
           if (normalRecord) {
@@ -202,16 +199,26 @@ export default function DashboardScreen() {
 
 
         // ==========================================
-        // 🚀 LẤY DỮ LIỆU ĐĂNG KÝ TĂNG CA (OT) TỪ BACKEND
+        // 🚀 LẤY DỮ LIỆU ĐĂNG KÝ TĂNG CA (OT) VÀ CẤU HÌNH OT TỪ BACKEND
         // ==========================================
         try {
-          const otResponse = await fetch(API_ENDPOINTS.OT_HISTORY(userProfile.id));
+          const [otResponse, configResponse] = await Promise.all([
+            fetch(API_ENDPOINTS.OT_HISTORY(userProfile.id)),
+            fetch(API_ENDPOINTS.OT_CONFIG)
+          ]);
           const otResult = await otResponse.json();
           if (otResult.success) {
             setOtRequests(otResult.data || []);
           }
+          const configResult = await configResponse.json();
+          if (configResult.success && configResult.data) {
+            setOtConfig({
+              thoi_gian_check_in_truoc: parseInt(configResult.data.thoi_gian_check_in_truoc) || 30,
+              thoi_gian_ot_toi_thieu: parseInt(configResult.data.thoi_gian_ot_toi_thieu) || 30
+            });
+          }
         } catch (otErr) {
-          console.error("Lỗi khi tải lịch sử tăng ca:", otErr);
+          console.error("Lỗi khi tải lịch sử hoặc cấu hình tăng ca:", otErr);
         }
 
         // ==========================================
@@ -434,14 +441,17 @@ export default function DashboardScreen() {
       const checkInHours = checkInDate.getHours();
       const checkInMinutes = checkInDate.getMinutes();
 
-      if (
-        checkInHours > shiftStartHours ||
-        (checkInHours === shiftStartHours && checkInMinutes > shiftStartMinutes)
-      ) {
-        const lateMinutes =
-          (checkInHours - shiftStartHours) * 60 +
-          (checkInMinutes - shiftStartMinutes);
-        return `Đi trễ (${lateMinutes} phút)`;
+      const shiftStartMins = shiftStartHours * 60 + shiftStartMinutes;
+      let shiftEndMins = shiftEndHours * 60 + shiftEndMinutes;
+      if (shiftEndMins <= shiftStartMins) shiftEndMins += 24 * 60;
+
+      let currentMins = checkInHours * 60 + checkInMinutes;
+      if (shiftEndMins > 24 * 60 && currentMins < shiftStartMins - (shiftCheckInBeforeMins || 60)) {
+          currentMins += 24 * 60;
+      }
+
+      if (currentMins > shiftStartMins) {
+        return `Đi trễ (${currentMins - shiftStartMins} phút)`;
       }
       return "Đúng giờ";
     } catch (e) {
@@ -456,10 +466,16 @@ export default function DashboardScreen() {
       const checkInHours = checkInDate.getHours();
       const checkInMinutes = checkInDate.getMinutes();
 
-      return (
-        checkInHours > shiftStartHours ||
-        (checkInHours === shiftStartHours && checkInMinutes > shiftStartMinutes)
-      );
+      const shiftStartMins = shiftStartHours * 60 + shiftStartMinutes;
+      let shiftEndMins = shiftEndHours * 60 + shiftEndMinutes;
+      if (shiftEndMins <= shiftStartMins) shiftEndMins += 24 * 60;
+
+      let currentMins = checkInHours * 60 + checkInMinutes;
+      if (shiftEndMins > 24 * 60 && currentMins < shiftStartMins - (shiftCheckInBeforeMins || 60)) {
+          currentMins += 24 * 60;
+      }
+
+      return currentMins > shiftStartMins;
     } catch (e) {
       return false;
     }
@@ -473,7 +489,7 @@ export default function DashboardScreen() {
     return hours * 60 + minutes;
   };
 
-  const checkIsWithinOTWindow = (ot: any, now: Date) => {
+  const checkIsWithinOTWindow = (ot: any, now: Date, config: any) => {
     if (ot.trang_thai !== 'DA_DUYET') return false;
 
     // So sánh ngày tăng ca
@@ -495,8 +511,8 @@ export default function DashboardScreen() {
 
     // Trường hợp 1: Chấm công trong cùng ngày đăng ký tăng ca
     if (isSameDay(now, otDate)) {
-      // Cho phép check-in sớm tối đa 30 phút, đến hết thời gian ca OT (hoặc hết ngày nếu qua đêm)
-      const allowedStart = otStartMinutes - 30;
+      // Cho phép check-in sớm tối đa thoi_gian_check_in_truoc phút
+      const allowedStart = otStartMinutes - (config.thoi_gian_check_in_truoc || 30);
       const allowedEnd = isOvernight ? 1440 : otEndMinutes;
       return currentMinutesFromMidnight >= allowedStart && currentMinutesFromMidnight <= allowedEnd;
     }
@@ -516,7 +532,7 @@ export default function DashboardScreen() {
     const currentMinutes = now.getMinutes();
 
     // 🚀 KIỂM TRA ĐƠN TĂNG CA ĐƯỢC PHÊ DUYỆT
-    const hasValidOT = otRequests.some(ot => checkIsWithinOTWindow(ot, now));
+    const hasValidOT = otRequests.some(ot => checkIsWithinOTWindow(ot, now, otConfig));
 
     if (hasValidOT) {
       router.push({
@@ -528,10 +544,18 @@ export default function DashboardScreen() {
 
     console.log("Mở chấm công vào trước (phút) của phòng ban đó:", shiftCheckInBeforeMins);
 
-    // Giới hạn thời gian chấm công sớm: Sử dụng số phút cho phép (mặc định 60 phút)
-    const shiftStartTotalMinutes = shiftStartHours * 60 + shiftStartMinutes;
-    const currentTotalMinutesForCheckIn = currentHours * 60 + currentMinutes;
-    const isTooEarly = currentTotalMinutesForCheckIn < (shiftStartTotalMinutes - shiftCheckInBeforeMins);
+    const shiftStartMins = shiftStartHours * 60 + shiftStartMinutes;
+    let shiftEndMins = shiftEndHours * 60 + shiftEndMinutes;
+    if (shiftEndMins <= shiftStartMins) {
+      shiftEndMins += 24 * 60;
+    }
+    
+    let currentMins = currentHours * 60 + currentMinutes;
+    if (shiftEndMins > 24 * 60 && currentMins < shiftStartMins - shiftCheckInBeforeMins) {
+        currentMins += 24 * 60;
+    }
+
+    const isTooEarly = currentMins < (shiftStartMins - shiftCheckInBeforeMins);
 
     if (isTooEarly) {
       setCustomAlert({
@@ -545,16 +569,14 @@ export default function DashboardScreen() {
       return;
     }
 
-    // 1. Sau ca hành chính 1 tiếng thì không check in vào ca được mà phải đăng ký OT
-    const isAfterShiftEndPlus1Hour =
-      currentHours > (shiftEndHours + 1) ||
-      (currentHours === (shiftEndHours + 1) && currentMinutes >= shiftEndMinutes);
+    // 1. Sau ca làm việc 1 tiếng thì không check in vào ca được mà phải đăng ký OT
+    const isAfterShiftEndPlus1Hour = currentMins > (shiftEndMins + 60);
 
     if (isAfterShiftEndPlus1Hour) {
       setCustomAlert({
         visible: true,
         title: "Không thể vào ca",
-        message: "Đã quá giờ ca hành chính 1 tiếng. Bạn không thể check-in vào ca này được nữa mà phải đăng ký OT.",
+        message: "Đã quá giờ ca làm việc 1 tiếng. Bạn không thể check-in vào ca này được nữa mà phải đăng ký OT.",
         type: "warning",
         confirmText: "Đã hiểu",
         onConfirm: () => setCustomAlert((prev) => ({ ...prev, visible: false })),
@@ -562,15 +584,8 @@ export default function DashboardScreen() {
       return;
     }
 
-    // 2. Nếu như trong ca hành chính mà đi muộn hơn số phút cho phép thì cần phải giải trình cho hr
-    const limitDate = new Date();
-    limitDate.setHours(shiftStartHours);
-    limitDate.setMinutes(shiftStartMinutes + shiftLateTolerance);
-
-    const currentTotalMinutes = currentHours * 60 + currentMinutes;
-    const limitTotalMinutes = limitDate.getHours() * 60 + limitDate.getMinutes();
-
-    const isAfterLateLimit = currentTotalMinutes > limitTotalMinutes;
+    // 2. Nếu như trong ca làm việc mà đi muộn hơn số phút cho phép thì cần phải giải trình cho hr
+    const isAfterLateLimit = currentMins > (shiftStartMins + shiftLateTolerance);
 
     // Nếu muộn hơn 8:15 thì hiển thị modal giải trình đi trễ
     if (isAfterLateLimit) {
@@ -602,7 +617,7 @@ export default function DashboardScreen() {
   };
 
   const now = new Date();
-  const isCurrentlyOt = otRequests.some(ot => checkIsWithinOTWindow(ot, now));
+  const isCurrentlyOt = otRequests.some(ot => checkIsWithinOTWindow(ot, now, otConfig));
   const hasApprovedOtToday = otRequests.some(ot => {
     if (ot.trang_thai !== 'DA_DUYET') return false;
     const otDate = new Date(ot.ngay_dang_ky_ot);
@@ -680,7 +695,7 @@ export default function DashboardScreen() {
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <Image
-            source={{ uri: profile.avatar || "https://randomuser.me/api/portraits/men/32.jpg" }}
+            source={{ uri: profile.avatar || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" }}
             style={styles.avatar}
           />
           <View style={styles.profileInfo}>

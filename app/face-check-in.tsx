@@ -1,4 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from 'expo-location';
+import { NetworkInfo } from 'react-native-network-info';
 import { useIsFocused, useFocusEffect } from "@react-navigation/native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -152,6 +154,19 @@ export default function CheckInScreen() {
 
       if (!cloudUrl) throw new Error("Không thể tải ảnh lên hệ thống");
 
+      // Lấy BSSID WiFi
+      let wifi_bssid = "";
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const bssid = await NetworkInfo.getBSSID();
+          wifi_bssid = bssid || "";
+          console.log(`\n[CHECK ATTENDANCE - MOBILE] BSSID: ${wifi_bssid}`);
+        }
+      } catch (e) {
+        console.error("Lỗi lấy thông tin WiFi:", e);
+      }
+
       // 6. Gửi 1 URL lên Backend xác thực
       setStatusMessage("Đang xác thực khuôn mặt...");
       const startBackendTime = Date.now();
@@ -161,7 +176,7 @@ export default function CheckInScreen() {
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Gửi { userId, url, intent: "check-in", lateReason, isOvertime }
+        // Gửi { userId, url, intent: "check-in", lateReason, isOvertime, wifi_bssid }
         body: JSON.stringify({
           userId: userId,
           url: cloudUrl,
@@ -169,7 +184,8 @@ export default function CheckInScreen() {
           action: "check_in",
           timestamp: new Date().toISOString(),
           lateReason: lateReason,
-          isOvertime: isOvertime
+          isOvertime: isOvertime,
+          wifi_bssid: wifi_bssid
         }),
       });
 
@@ -227,7 +243,7 @@ export default function CheckInScreen() {
           }
         });
       } else {
-        console.error("❌ Nhận diện thất bại:", data);
+        // console.error("❌ Nhận diện thất bại:", data); // Hidden as per request
         setCustomAlert({
           visible: true,
           title: "Không khớp",

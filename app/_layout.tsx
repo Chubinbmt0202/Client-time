@@ -28,6 +28,18 @@ import { CustomAlert, CustomAlertState } from "../components/CustomAlert";
 import { database } from "../utils/firebase";
 import { registerForPushNotificationsAsync, savePushTokenToBackend } from '../utils/notifications';
 
+// Vô hiệu hóa log, cảnh báo và lỗi trong môi trường Production để tối ưu hiệu năng
+if (!__DEV__) {
+  console.log = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+} else {
+  // Bỏ comment các dòng dưới đây nếu bạn muốn tắt log/cảnh báo/lỗi ngay cả khi đang Dev (không khuyến khích)
+  // console.log = () => {};
+  // console.warn = () => {};
+  // console.error = () => {};
+}
+
 function CustomDrawerContent(props: any) {
   const router = useRouter();
   const pathname = usePathname();
@@ -35,7 +47,7 @@ function CustomDrawerContent(props: any) {
     name: "Người dùng",
     id: "NV000",
     role: "NHÂN VIÊN",
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg"
+    avatar: "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y"
   });
   const [unreadCount, setUnreadCount] = React.useState(0);
   const [isFaceUpdated, setIsFaceUpdated] = React.useState(false);
@@ -51,7 +63,7 @@ function CustomDrawerContent(props: any) {
           name: user.ho_va_ten || "Người dùng",
           id: user.id_nhan_vien || "NV000",
           role: (user.ten_vai_tro || user.role || "NHÂN VIÊN").toUpperCase(),
-          avatar: user.hinh_anh || "https://randomuser.me/api/portraits/men/32.jpg"
+          avatar: user.hinh_anh || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y"
         });
         setIsFaceUpdated(user.is_face_updated === true);
       }
@@ -167,7 +179,7 @@ function CustomDrawerContent(props: any) {
       <View style={styles.profileHeader}>
         <View style={styles.avatarContainer}>
           <Image
-            source={{ uri: profile.avatar || "https://randomuser.me/api/portraits/men/32.jpg" }}
+            source={{ uri: profile.avatar || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" }}
             style={styles.avatar}
           />
           <View style={styles.onlineDot} />

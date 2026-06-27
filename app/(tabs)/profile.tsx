@@ -362,7 +362,7 @@ export default function ProfileScreen() {
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             <Image
-              source={{ uri: userData?.hinh_anh || "https://randomuser.me/api/portraits/men/32.jpg" }}
+              source={{ uri: userData?.hinh_anh || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" }}
               style={styles.avatar}
             />
             <TouchableOpacity
